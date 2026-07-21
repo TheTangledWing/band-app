@@ -2,9 +2,11 @@
 
 ## Core Entities
 
-### Tenant
+### Control Plane Tenant
 
-Represents a band/account boundary. A user can create and belong to multiple tenants/bands.
+Represents the account boundary created by the FoodyFood control plane.
+
+The current control plane stores this as one `custom:tenant_id` on each Cognito user.
 
 Fields:
 
@@ -12,6 +14,24 @@ Fields:
 - `name`
 - `slug`
 - `created_by_user_id`
+- `created_at`
+- `updated_at`
+
+### Band
+
+Represents a Bandmanager band workspace.
+
+A user can create and belong to multiple bands. Bands are scoped under a control-plane tenant for authentication/account ownership, but Bandmanager owns the multi-band membership model.
+
+Fields:
+
+- `id`
+- `control_plane_tenant_id`
+- `name`
+- `slug`
+- `created_by_user_id`
+- `default_currency`
+- `timezone`
 - `created_at`
 - `updated_at`
 
@@ -31,15 +51,16 @@ Fields:
 
 ### Membership
 
-Connects a user to a tenant with a role.
+Connects a user to a Bandmanager band with a role.
 
-Expected to come from or sync with the existing control plane.
+Bandmanager should own this record unless the control plane is later extended to support multi-tenant/multi-band membership per user.
 
 Fields:
 
 - `id`
-- `tenant_id`
+- `band_id`
 - `user_id`
+- `email`
 - `role`
 - `status`
 - `created_at`
@@ -65,7 +86,7 @@ Allows an owner or manager to share access to a band.
 Fields:
 
 - `id`
-- `tenant_id`
+- `band_id`
 - `token_hash`
 - `default_role`
 - `created_by_user_id`
@@ -82,12 +103,12 @@ Rules:
 
 ### Band Profile
 
-Stores band-specific settings inside a tenant.
+Stores band-specific settings.
 
 Fields:
 
 - `id`
-- `tenant_id`
+- `band_id`
 - `name`
 - `default_currency`
 - `timezone`
@@ -108,7 +129,7 @@ Represents a calendar item.
 Fields:
 
 - `id`
-- `tenant_id`
+- `band_id`
 - `title`
 - `event_type`
 - `status`
@@ -159,7 +180,7 @@ Stores files attached to an event, such as invoices, booking confirmations, post
 Fields:
 
 - `id`
-- `tenant_id`
+- `band_id`
 - `event_id`
 - `file_name`
 - `file_type`
@@ -185,7 +206,7 @@ Stores a user's notification settings for a band.
 Fields:
 
 - `id`
-- `tenant_id`
+- `band_id`
 - `user_id`
 - `email_enabled`
 - `push_enabled`
@@ -250,7 +271,7 @@ Stores reusable venue/location information.
 Fields:
 
 - `id`
-- `tenant_id`
+- `band_id`
 - `name`
 - `address_line`
 - `city`
@@ -270,13 +291,14 @@ Rules:
 - map links are manually stored in MVP
 - map search/geocoding can be added later
 
-## Tenant Boundary Rules
+## Boundary Rules
 
-- Every event belongs to one tenant.
-- Every location belongs to one tenant.
-- Users only access tenant data through active membership.
-- A user may belong to multiple tenants/bands.
-- The user who creates a tenant/band becomes `owner`.
+- Every Bandmanager event belongs to one band.
+- Every Bandmanager location belongs to one band.
+- Users only access band data through active Bandmanager membership.
+- A user may belong to multiple bands.
+- The user who creates a band becomes `owner`.
+- The Cognito/control-plane tenant remains the authentication/account boundary.
 - Role permissions should be checked server-side.
 
 ## Audit Rules

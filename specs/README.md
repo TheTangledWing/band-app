@@ -10,6 +10,7 @@ This folder is the source of truth for the early product design. Implementation 
 - `mvp-requirements.md` - first release requirements and acceptance criteria.
 - `domain-model.md` - tenants, users, bands, members, events, locations, and payments.
 - `technical-direction.md` - proposed architecture and integration points for the existing control plane.
+- `control-plane-integration.md` - findings from the FoodyFood control-plane repo and Bandmanager integration decisions.
 - `roadmap.md` - near-future modules that should not block the calendar MVP.
 - `open-questions.md` - choices still to confirm before build.
 

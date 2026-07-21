@@ -94,8 +94,9 @@ What it does not prove:
 Known repository:
 
 - `https://github.com/FoodyFood/control-plane.git`
+- `git@github.com:FoodyFood/control-plane.git`
 
-The repository still needs to be cloned or otherwise made available locally before these assumptions can be verified.
+The repository has been cloned locally for reference at `reference/control-plane/`.
 
 The app should not invent a separate identity system if the control plane already owns:
 
@@ -116,6 +117,7 @@ Needed integration points:
 Bandmanager should own:
 
 - band profile settings
+- Bandmanager-specific band membership records, unless the control plane is extended for multi-band membership
 - calendar events
 - event locations
 - event payment details
@@ -124,6 +126,12 @@ Bandmanager should own:
 - push subscriptions
 - band join links, if the control plane does not already provide them
 - event attendees, if included
+
+Integration note:
+
+- The current control plane stores one `custom:tenant_id` and one `custom:roles` value per Cognito user.
+- Bandmanager requires users to create and belong to multiple bands.
+- The safest first build is to use the control plane for authentication and base tenant/account setup, then store Bandmanager-specific `Band` and `BandMembership` records in the Bandmanager backend.
 
 ## API Shape
 

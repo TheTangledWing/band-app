@@ -37,4 +37,6 @@ http://127.0.0.1:5173/
 
 Product and technical specs live in `specs/`.
 
+The current integration assumption is that FoodyFood's control plane provides Cognito authentication and the base account tenant, while Bandmanager owns app-specific bands, memberships, events, setlists, and posters.
+
 The first real build should keep the calendar as the MVP focus, with setlists and posters available in the prototype for product exploration.
