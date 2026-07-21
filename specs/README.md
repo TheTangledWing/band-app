@@ -13,6 +13,7 @@ This folder is the source of truth for the early product design. Implementation 
 - `control-plane-integration.md` - findings from the FoodyFood control-plane repo and Bandmanager integration decisions.
 - `aws-build-plan.md` - practical AWS deployment and build phases.
 - `aws-day-one-runbook.md` - first hands-on AWS setup and Amplify hosting steps.
+- `aws-cost-control.md` - cost-control rules for the private AWS MVP.
 - `roadmap.md` - near-future modules that should not block the calendar MVP.
 - `open-questions.md` - choices still to confirm before build.
 

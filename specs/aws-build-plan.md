@@ -15,6 +15,7 @@ Before deploying anything:
 - enable MFA on the AWS root account
 - create an admin IAM Identity Center user for day-to-day work
 - set a billing budget/alert
+- read and follow `aws-cost-control.md`
 - choose one AWS region, likely `eu-west-1`
 - verify a sender email/domain in Amazon SES
 - keep GitHub as the source of truth
@@ -90,6 +91,11 @@ Recommended shape:
 - DynamoDB on-demand
 - Cognito authorizer using the control-plane user pool
 - S3 private bucket for attachments/posters/lyrics
+
+Cost note:
+
+- avoid RDS, containers, NAT Gateway, WAF, and always-on compute in the private MVP
+- prefer request-priced/serverless services while traffic is tiny
 
 First tables:
 

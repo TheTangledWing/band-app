@@ -34,6 +34,7 @@ In AWS:
 - enable MFA on the AWS root account
 - create a day-to-day admin user through IAM Identity Center if possible
 - create a billing budget alert
+- keep the first monthly budget small, around `20`
 - choose region `eu-west-1` unless there is a reason not to
 
 On GitHub:
@@ -51,6 +52,7 @@ In AWS Console:
 3. Suggested first limit: `20 EUR` or the nearest equivalent.
 4. Add your email for alerts.
 5. Add alerts at 50%, 80%, and 100%.
+6. Check the billing dashboard after every new service is deployed.
 
 Do this before deploying services.
 
@@ -209,3 +211,7 @@ Do these now:
 3. Amplify Hosting deploy from GitHub.
 
 Once the Amplify URL exists, paste it back into the thread and we will wire the repo for that deployment properly.
+
+Cost rule:
+
+- do not add RDS, EC2, NAT Gateway, WAF, or containers during the first private test.
