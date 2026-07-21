@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bandmanager Local Prototype</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Band workspace">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true">Bm</div>
+          <div>
+            <h1>Bandmanager</h1>
+            <p>Local band workspace</p>
+          </div>
+        </div>
+
+        <section class="panel compact-panel">
+          <label for="userSelect">Signed in as</label>
+          <select id="userSelect"></select>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Bands</h2>
+            <button id="newBandButton" class="icon-button" type="button" title="Create band" aria-label="Create band">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+            </button>
+          </div>
+          <div id="bandList" class="band-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Join Link</h2>
+            <button id="copyJoinLinkButton" class="icon-button" type="button" title="Copy join link" aria-label="Copy join link">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            </button>
+          </div>
+          <p class="muted">Share this locally to simulate joining the selected band.</p>
+          <div id="joinLink" class="join-link"></div>
+          <button id="joinBandButton" class="secondary-button" type="button">Join as selected user</button>
+        </section>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="bandRoleLabel">Owner workspace</p>
+            <h2 id="activeBandName">Fir Bolg</h2>
+          </div>
+          <div class="topbar-actions">
+            <div class="segmented-control app-nav" role="tablist" aria-label="Workspace section">
+              <button id="calendarSectionButton" class="active" type="button">Calendar</button>
+              <button id="setlistsSectionButton" type="button">Setlists</button>
+              <button id="postersSectionButton" type="button">Posters</button>
+            </div>
+            <button id="previousMonthButton" class="icon-button calendar-action" type="button" title="Previous month" aria-label="Previous month">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
+            </button>
+            <button id="todayButton" class="secondary-button calendar-action" type="button">Today</button>
+            <button id="nextMonthButton" class="icon-button calendar-action" type="button" title="Next month" aria-label="Next month">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+            </button>
+            <button id="newEventButton" class="primary-button calendar-action" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+              New event
+            </button>
+            <button id="newSetlistButton" class="primary-button setlist-action hidden" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+              New setlist
+            </button>
+            <button id="newPosterButton" class="primary-button poster-action hidden" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+              New poster
+            </button>
+          </div>
+        </header>
+
+        <section id="calendarSection">
+          <section class="calendar-toolbar">
+            <div>
+              <h3 id="monthLabel">July 2026</h3>
+              <p id="monthSummary" class="muted">Calendar and agenda</p>
+            </div>
+            <div class="segmented-control" role="tablist" aria-label="Calendar view">
+              <button id="monthViewButton" class="active" type="button">Month</button>
+              <button id="agendaViewButton" type="button">Agenda</button>
+            </div>
+          </section>
+
+          <div class="workspace-grid">
+            <section class="calendar-panel" aria-label="Calendar">
+              <div id="monthView" class="month-view"></div>
+              <div id="agendaView" class="agenda-view hidden"></div>
+            </section>
+
+            <aside class="detail-column">
+              <section class="panel event-detail-panel">
+                <div class="panel-title">
+                  <h2>Event</h2>
+                  <button id="editSelectedEventButton" class="icon-button" type="button" title="Edit selected event" aria-label="Edit selected event">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                  </button>
+                </div>
+                <div id="eventDetail" class="event-detail"></div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-title">
+                  <h2>Notifications</h2>
+                  <button id="clearNotificationsButton" class="icon-button" type="button" title="Clear notifications" aria-label="Clear notifications">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m19 6-1 14H6L5 6"></path></svg>
+                  </button>
+                </div>
+                <div id="notificationLog" class="notification-log"></div>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section id="setlistsSection" class="hidden">
+          <section class="calendar-toolbar">
+            <div>
+              <h3>Setlists</h3>
+              <p id="setlistSummary" class="muted">Songs and lyrics for the selected band</p>
+            </div>
+            <button id="newSongButton" class="secondary-button" type="button">Add song</button>
+          </section>
+
+          <div class="setlist-grid">
+            <section class="panel setlist-browser">
+              <div class="panel-title">
+                <h2>Setlists</h2>
+              </div>
+              <div id="setlistList" class="setlist-list"></div>
+            </section>
+
+            <section class="panel song-list-panel">
+              <div class="panel-title">
+                <h2 id="selectedSetlistName">Songs</h2>
+                <button id="addSongToSetlistButton" class="icon-button" type="button" title="Add song to setlist" aria-label="Add song to setlist">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                </button>
+              </div>
+              <div id="setlistSongs" class="setlist-songs"></div>
+            </section>
+
+            <aside class="panel lyrics-panel">
+              <div class="panel-title">
+                <h2>Lyrics</h2>
+                <button id="editSongButton" class="icon-button" type="button" title="Edit song" aria-label="Edit song">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                </button>
+              </div>
+              <div id="songDetail" class="song-detail"></div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="postersSection" class="hidden">
+          <section class="calendar-toolbar">
+            <div>
+              <h3>Posters</h3>
+              <p id="posterSummary" class="muted">Gig artwork and promo files for the selected band</p>
+            </div>
+          </section>
+
+          <div class="poster-grid">
+            <section class="poster-board" id="posterBoard" aria-label="Gig posters"></section>
+
+            <aside class="panel poster-detail-panel">
+              <div class="panel-title">
+                <h2>Poster</h2>
+                <button id="editPosterButton" class="icon-button" type="button" title="Edit poster" aria-label="Edit poster">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                </button>
+              </div>
+              <div id="posterDetail" class="poster-detail"></div>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="eventDialog" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="eventDialogTitle">
+      <form id="eventForm" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Calendar entry</p>
+            <h2 id="eventDialogTitle">New event</h2>
+          </div>
+          <button class="icon-button" value="cancel" type="button" id="closeEventDialogButton" title="Close" aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+          </button>
+        </div>
+
+        <input id="eventId" type="hidden">
+        <div class="form-grid">
+          <label>Title<input id="eventTitle" required></label>
+          <label>Type
+            <select id="eventType">
+              <option value="gig">Gig</option>
+              <option value="rehearsal">Rehearsal</option>
+              <option value="recording">Recording</option>
+              <option value="meeting">Meeting</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>Start<input id="eventStart" type="datetime-local" required></label>
+          <label>End<input id="eventEnd" type="datetime-local" required></label>
+          <label>Status
+            <select id="eventStatus">
+              <option value="scheduled">Scheduled</option>
+              <option value="tentative">Tentative</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </label>
+          <label>Venue
+            <select id="eventLocation"></select>
+          </label>
+          <label class="wide">New venue name<input id="newVenueName" placeholder="Leave blank to use selected venue"></label>
+          <label>Payment amount<input id="paymentAmount" type="number" min="0" step="0.01" placeholder="0.00"></label>
+          <label>Currency<input id="paymentCurrency" value="EUR"></label>
+          <label>Payment status
+            <select id="paymentStatus">
+              <option value="unknown">Unknown</option>
+              <option value="quoted">Quoted</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="invoiced">Invoiced</option>
+              <option value="paid">Paid</option>
+            </select>
+          </label>
+          <label class="wide">Payment notes<textarea id="paymentNotes" rows="2"></textarea></label>
+          <label class="wide">Event notes<textarea id="eventNotes" rows="3"></textarea></label>
+          <label class="wide">Attach files<input id="eventAttachments" type="file" multiple></label>
+          <div id="existingAttachments" class="existing-attachments wide"></div>
+        </div>
+
+        <div class="dialog-actions">
+          <button id="cancelEventButton" class="danger-button" type="button">Cancel event</button>
+          <div class="spacer"></div>
+          <button class="secondary-button" type="button" id="dismissEventDialogButton">Close</button>
+          <button class="primary-button" type="submit">Save event</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="bandDialog" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="bandDialogTitle">
+      <form id="bandForm" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Band workspace</p>
+            <h2 id="bandDialogTitle">Create band</h2>
+          </div>
+          <button class="icon-button" value="cancel" type="button" id="closeBandDialogButton" title="Close" aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        <label>Band name<input id="bandNameInput" required></label>
+        <div class="dialog-actions">
+          <div class="spacer"></div>
+          <button class="secondary-button" type="button" id="dismissBandDialogButton">Close</button>
+          <button class="primary-button" type="submit">Create</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="setlistDialog" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="setlistDialogTitle">
+      <form id="setlistForm" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Setlist</p>
+            <h2 id="setlistDialogTitle">New setlist</h2>
+          </div>
+          <button class="icon-button" type="button" id="closeSetlistDialogButton" title="Close" aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        <label>Setlist name<input id="setlistNameInput" required></label>
+        <div class="dialog-actions">
+          <div class="spacer"></div>
+          <button class="secondary-button" type="button" id="dismissSetlistDialogButton">Close</button>
+          <button class="primary-button" type="submit">Create</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="songDialog" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="songDialogTitle">
+      <form id="songForm" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Song</p>
+            <h2 id="songDialogTitle">Add song</h2>
+          </div>
+          <button class="icon-button" type="button" id="closeSongDialogButton" title="Close" aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        <input id="songId" type="hidden">
+        <div class="form-grid">
+          <label>Title<input id="songTitle" required></label>
+          <label>Key<input id="songKey" placeholder="D"></label>
+          <label>Tempo<input id="songTempo" placeholder="118 bpm"></label>
+          <label>Lyrics attachment<input id="songAttachmentName" placeholder="lyrics.pdf"></label>
+          <label class="wide">Lyrics<textarea id="songLyrics" rows="10"></textarea></label>
+        </div>
+        <div class="dialog-actions">
+          <div class="spacer"></div>
+          <button class="secondary-button" type="button" id="dismissSongDialogButton">Close</button>
+          <button class="primary-button" type="submit">Save song</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="posterDialog" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="posterDialogTitle">
+      <form id="posterForm" method="dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Gig poster</p>
+            <h2 id="posterDialogTitle">New poster</h2>
+          </div>
+          <button class="icon-button" type="button" id="closePosterDialogButton" title="Close" aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        <input id="posterId" type="hidden">
+        <div class="form-grid">
+          <label>Title<input id="posterTitle" required></label>
+          <label>Status
+            <select id="posterStatus">
+              <option value="draft">Draft</option>
+              <option value="approved">Approved</option>
+              <option value="published">Published</option>
+              <option value="archived">Archived</option>
+            </select>
+          </label>
+          <label>Linked event
+            <select id="posterEvent"></select>
+          </label>
+          <label>Designer / owner<input id="posterOwner" placeholder="Alan"></label>
+          <label class="wide">Poster file<input id="posterFile" type="file" accept="image/*,.pdf"></label>
+          <label class="wide">File name<input id="posterFileName" placeholder="gig-poster.jpg"></label>
+          <label class="wide">Notes<textarea id="posterNotes" rows="4"></textarea></label>
+        </div>
+        <div class="dialog-actions">
+          <div class="spacer"></div>
+          <button class="secondary-button" type="button" id="dismissPosterDialogButton">Close</button>
+          <button class="primary-button" type="submit">Save poster</button>
+        </div>
+      </form>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
