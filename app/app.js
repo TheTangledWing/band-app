@@ -41,7 +41,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindElements();
   bindActions();
   await startApp();
+  registerServiceWorker();
 });
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+
+  navigator.serviceWorker.register("./service-worker.js").catch(() => {
+    // The app still works normally when service workers are unavailable.
+  });
+}
 
 function bindElements() {
   [
