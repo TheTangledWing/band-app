@@ -1,16 +1,21 @@
 :root {
-  --bg: #eef1f4;
+  --bg: #f3f0e8;
   --surface: #ffffff;
-  --surface-soft: #f7f8f7;
-  --ink: #202427;
-  --muted: #65717a;
-  --line: #d7dde1;
-  --primary: #136f63;
-  --primary-dark: #0d4f49;
-  --accent: #b4432f;
+  --surface-soft: #f8f7f1;
+  --ink: #1f2524;
+  --muted: #66706c;
+  --line: #ded8ca;
+  --primary: #0f766e;
+  --primary-dark: #0b5f59;
+  --accent: #c55237;
   --warning: #a46a00;
-  --blue: #356ea3;
-  --shadow: 0 18px 50px rgba(32, 36, 39, 0.12);
+  --blue: #326f91;
+  --gold: #e6bd62;
+  --rose: #a63d40;
+  --sidebar: #172625;
+  --sidebar-soft: #213635;
+  --shadow: 0 20px 48px rgba(31, 37, 36, 0.1);
+  --shadow-tight: 0 10px 26px rgba(31, 37, 36, 0.08);
 }
 
 * {
@@ -21,12 +26,14 @@ body {
   margin: 0;
   min-height: 100vh;
   color: var(--ink);
-  background: var(--bg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 220px),
+    var(--bg);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 body.auth-active {
-  background: #1f2b2d;
+  background: var(--sidebar);
 }
 
 button,
@@ -52,8 +59,9 @@ button {
   place-items: center;
   padding: 24px;
   background:
-    linear-gradient(135deg, rgba(231, 198, 106, 0.16), rgba(255, 255, 255, 0)),
-    #1f2b2d;
+    radial-gradient(circle at top left, rgba(230, 189, 98, 0.2), transparent 360px),
+    linear-gradient(135deg, rgba(197, 82, 55, 0.14), rgba(255, 255, 255, 0)),
+    var(--sidebar);
 }
 
 .auth-panel {
@@ -83,7 +91,7 @@ button {
   gap: 14px;
   min-height: 100%;
   padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
   background: #fff;
   box-shadow: var(--shadow);
@@ -113,12 +121,32 @@ button {
 }
 
 .sidebar {
-  background: #1f2b2d;
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(230, 189, 98, 0.12), rgba(230, 189, 98, 0) 220px),
+    var(--sidebar);
   color: #f7faf9;
   padding: 22px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(180deg, #000, transparent 72%);
+}
+
+.sidebar > * {
+  position: relative;
 }
 
 .brand-block {
@@ -134,9 +162,11 @@ button {
   border-radius: 8px;
   display: grid;
   place-items: center;
-  background: #e7c66a;
+  background:
+    linear-gradient(145deg, #f4d375, var(--gold));
   color: #192024;
   font-weight: 800;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
 }
 
 h1,
@@ -167,12 +197,15 @@ p {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 16px;
+  box-shadow: var(--shadow-tight);
 }
 
 .sidebar .panel {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.075);
+  border-color: rgba(255, 255, 255, 0.13);
   color: #f7faf9;
+  box-shadow: none;
+  backdrop-filter: blur(12px);
 }
 
 .compact-panel {
@@ -208,6 +241,16 @@ textarea {
   padding: 10px 11px;
   background: #fff;
   color: var(--ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(15, 118, 110, 0.72);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+  outline: none;
 }
 
 .sidebar select,
@@ -226,13 +269,20 @@ textarea {
   border: 1px solid transparent;
   border-radius: 7px;
   padding: 11px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.075);
   color: #f7faf9;
+  transition: background 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
 }
 
 .band-item.active {
   background: #f7faf9;
   color: #192024;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+}
+
+.band-item:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
 }
 
 .band-item span {
@@ -256,7 +306,7 @@ textarea {
 
 .main-area {
   min-width: 0;
-  padding: 22px;
+  padding: 26px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -271,7 +321,8 @@ textarea {
 }
 
 .topbar h2 {
-  font-size: 1.65rem;
+  font-size: 1.9rem;
+  line-height: 1.05;
 }
 
 .eyebrow {
@@ -304,6 +355,8 @@ textarea {
   padding: 9px 12px;
   background: #fff;
   color: var(--ink);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
 .icon-button {
@@ -323,14 +376,22 @@ textarea {
 }
 
 .primary-button {
-  background: var(--primary);
+  background: linear-gradient(180deg, #108179, var(--primary));
   color: #fff;
   border-color: var(--primary);
   font-weight: 700;
+  box-shadow: 0 10px 22px rgba(15, 118, 110, 0.2);
 }
 
 .primary-button:hover {
   background: var(--primary-dark);
+}
+
+.icon-button:hover,
+.primary-button:hover,
+.secondary-button:hover,
+.danger-button:hover {
+  transform: translateY(-1px);
 }
 
 .secondary-button {
@@ -347,8 +408,9 @@ textarea {
   display: inline-flex;
   padding: 3px;
   border: 1px solid var(--line);
-  background: #fff;
+  background: rgba(255, 255, 255, 0.72);
   border-radius: 8px;
+  box-shadow: var(--shadow-tight);
 }
 
 .segmented-control button {
@@ -361,7 +423,7 @@ textarea {
 }
 
 .segmented-control button.active {
-  background: #1f2b2d;
+  background: var(--sidebar);
   color: #fff;
 }
 
@@ -412,7 +474,7 @@ textarea {
 .weekday {
   padding: 10px;
   min-height: 38px;
-  background: var(--surface-soft);
+  background: #eee8dc;
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   color: var(--muted);
@@ -426,16 +488,18 @@ textarea {
   padding: 9px;
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  background: #fff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(252, 250, 245, 0.94));
 }
 
 .day-cell.outside {
-  background: #f6f7f8;
+  background: #f0ede6;
   color: #9aa3a8;
 }
 
 .day-cell.today {
-  box-shadow: inset 0 0 0 2px var(--primary);
+  background: #fffdf7;
+  box-shadow: inset 0 0 0 2px var(--gold);
 }
 
 .day-head {
@@ -456,13 +520,20 @@ textarea {
   width: 100%;
   border: 0;
   border-left: 4px solid var(--primary);
-  background: #edf7f4;
+  background: #e8f5f1;
   color: #17312e;
   text-align: left;
   border-radius: 5px;
   padding: 6px 7px;
   min-height: 32px;
   overflow: hidden;
+  box-shadow: 0 6px 12px rgba(15, 118, 110, 0.08);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.event-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(15, 118, 110, 0.13);
 }
 
 .event-chip.cancelled {
@@ -489,8 +560,13 @@ textarea {
   gap: 14px;
   padding: 16px;
   border-bottom: 1px solid var(--line);
-  background: #fff;
+  background: rgba(255, 255, 255, 0.92);
   text-align: left;
+  transition: background 0.18s ease;
+}
+
+.agenda-item:hover {
+  background: #fffdf7;
 }
 
 .agenda-date {
@@ -515,7 +591,7 @@ textarea {
   align-items: center;
   min-height: 24px;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: 7px;
   background: #edf1f2;
   color: #405058;
   font-size: 0.76rem;
@@ -523,8 +599,8 @@ textarea {
 }
 
 .tag.money {
-  background: #eef7e7;
-  color: #34611f;
+  background: #e8f4df;
+  color: #315d22;
 }
 
 .tag.status {
@@ -588,6 +664,8 @@ textarea {
   background: #fff;
   color: var(--ink);
   text-align: left;
+  box-shadow: 0 8px 18px rgba(31, 37, 36, 0.05);
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
 }
 
 .setlist-item {
@@ -604,7 +682,12 @@ textarea {
 .setlist-item.active,
 .song-row.active {
   border-color: var(--primary);
-  background: #edf7f4;
+  background: #e8f5f1;
+}
+
+.setlist-item:hover,
+.song-row:hover {
+  transform: translateY(-1px);
 }
 
 .song-row {
@@ -622,7 +705,7 @@ textarea {
   border-radius: 999px;
   display: grid;
   place-items: center;
-  background: #1f2b2d;
+  background: var(--sidebar);
   color: #fff;
   font-size: 0.82rem;
   font-weight: 800;
@@ -642,7 +725,9 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 7px;
   padding: 14px;
-  background: #fbfcfc;
+  background:
+    linear-gradient(90deg, rgba(230, 189, 98, 0.08) 0 4px, transparent 4px),
+    #fffdf8;
   color: #1d2528;
   font: 0.96rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
@@ -655,12 +740,18 @@ textarea {
   background: #fff;
   color: var(--ink);
   text-align: left;
-  box-shadow: 0 10px 24px rgba(32, 36, 39, 0.08);
+  box-shadow: var(--shadow-tight);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
 .poster-card.active {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(19, 111, 99, 0.16), 0 10px 24px rgba(32, 36, 39, 0.08);
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.16), var(--shadow-tight);
+}
+
+.poster-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(31, 37, 36, 0.12);
 }
 
 .poster-art,
@@ -670,8 +761,8 @@ textarea {
   place-items: center;
   padding: 18px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0)),
-    #315a68;
+    linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0)),
+    linear-gradient(160deg, #326f91, #1c4f5b);
   color: #fff;
   text-align: center;
   font-weight: 900;
@@ -689,21 +780,21 @@ textarea {
 .poster-preview.draft {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0)),
-    #6d6264;
+    linear-gradient(160deg, #6d6264, #443f42);
 }
 
 .poster-art.approved,
 .poster-preview.approved {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0)),
-    #136f63;
+    linear-gradient(160deg, #148078, #0d5f58);
 }
 
 .poster-art.published,
 .poster-preview.published {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0)),
-    #b4432f;
+    linear-gradient(160deg, #c55237, #8f3328);
 }
 
 .poster-art.archived,
@@ -735,7 +826,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 7px;
   padding: 9px;
-  background: var(--surface-soft);
+  background: #fffdf8;
 }
 
 .notification-item strong {
@@ -754,7 +845,8 @@ textarea {
   display: grid;
   place-items: center;
   padding: 14px;
-  background: rgba(20, 24, 26, 0.5);
+  background: rgba(20, 24, 26, 0.56);
+  backdrop-filter: blur(6px);
 }
 
 .modal-layer form {
