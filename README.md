@@ -46,3 +46,12 @@ Product and technical specs live in `specs/`.
 The current integration assumption is that FoodyFood's control plane provides Cognito authentication and the base account tenant, while Bandmanager owns app-specific bands, memberships, events, setlists, and posters.
 
 The first real build should keep the calendar as the MVP focus, with setlists and posters available in the prototype for product exploration.
+
+## AWS Dev
+
+The hosted prototype and control-plane dev deployment are documented in:
+
+- `specs/aws-day-one-runbook.md`
+- `specs/control-plane-integration.md`
+
+The repo-level `config/dev.yaml` is shared config used by the local control-plane reference checkout during CDK deploys.

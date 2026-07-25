@@ -143,6 +143,11 @@ frontend:
 
 This is needed for control-plane verification emails and future Bandmanager notifications.
 
+Current dev sender:
+
+- `alan.p.heraty@gmail.com`
+- SES verification status: `Success`
+
 In AWS Console:
 
 1. Search for `Amazon SES`.
@@ -198,9 +203,26 @@ After local AWS/CDK tooling is ready:
 
 Definition of done:
 
+- control-plane stack status is `CREATE_COMPLETE`
+- `GET /public/health` returns `200`
 - signup flow can send a verification code
 - a user can complete signup
 - a signed-in user can call `/tenant/profile`
+
+Current dev deployment:
+
+- CloudFormation stack: `ControlPlaneDev`
+- API URL: `https://6xlmt0zsbf.execute-api.eu-west-1.amazonaws.com/dev/`
+- Cognito User Pool ID: `eu-west-1_AQjmXYgAi`
+- Cognito App Client ID: `35rb9p01ephnltfudsa3o04u18`
+
+Local deployment notes:
+
+- CDK was bootstrapped in `aws://883765745228/eu-west-1`.
+- The control-plane repo expects shared config at Bandmanager repo root: `config/dev.yaml`.
+- The local reference checkout remains ignored at `reference/control-plane/`.
+- CDK's deploy waiter timed out after creating the change set, so the generated CloudFormation change set was executed manually.
+- CloudFormation completed successfully and `/public/health` was verified.
 
 ## Step 8: Build Bandmanager Cloud API
 

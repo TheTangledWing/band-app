@@ -24,6 +24,47 @@ The control plane is:
 - Amazon SES for email
 - REST API Gateway with Cognito authorizer
 
+## Current Dev Deployment
+
+AWS region:
+
+- `eu-west-1`
+
+Control-plane API:
+
+- `https://6xlmt0zsbf.execute-api.eu-west-1.amazonaws.com/dev/`
+
+Health endpoint:
+
+- `https://6xlmt0zsbf.execute-api.eu-west-1.amazonaws.com/dev/public/health`
+
+Cognito:
+
+- User Pool ID: `eu-west-1_AQjmXYgAi`
+- Web App Client ID: `35rb9p01ephnltfudsa3o04u18`
+
+SSM handoff parameters:
+
+- `/control-plane/dev/api-url`
+- `/identity/dev/user-pool-id`
+- `/identity/dev/user-pool-arn`
+- `/identity/dev/user-pool-client-id`
+- `/hosting/dev/url`
+
+Email:
+
+- SES sender identity: `alan.p.heraty@gmail.com`
+- Verification status: `Success`
+
+Health verification result:
+
+```json
+{
+  "status": "healthy",
+  "stage": "dev"
+}
+```
+
 ## Existing Control Plane Capabilities
 
 Public signup flow:
