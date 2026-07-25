@@ -243,6 +243,24 @@ Definition of done:
 - event persists in DynamoDB
 - frontend reads real cloud data
 
+Current dev deployment:
+
+- CloudFormation stack: `BandmanagerApiDev`
+- API URL: `https://q108svdio9.execute-api.eu-west-1.amazonaws.com/dev/`
+- DynamoDB table: `bandmanager-dev-app`
+- Auth: Cognito authorizer using user pool `eu-west-1_AQjmXYgAi`
+- Deployed endpoints:
+  - `GET /me`
+  - `GET /bands`
+  - `POST /bands`
+  - `GET /bands/{band_id}`
+  - `POST /bands/{band_id}/join-links`
+  - `POST /join-links/{token}/redeem`
+  - `GET /bands/{band_id}/events`
+  - `POST /bands/{band_id}/events`
+  - `PATCH /bands/{band_id}/events/{event_id}`
+  - `POST /bands/{band_id}/events/{event_id}/cancel`
+
 ## Immediate Next Action
 
 Do these now:

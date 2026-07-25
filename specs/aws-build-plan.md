@@ -144,6 +144,33 @@ Definition of done:
 - events persist in DynamoDB
 - calendar works from real API data
 
+Current dev deployment:
+
+- CloudFormation stack: `BandmanagerApiDev`
+- API URL: `https://q108svdio9.execute-api.eu-west-1.amazonaws.com/dev/`
+- DynamoDB table: `bandmanager-dev-app`
+- SSM API URL: `/bandmanager/dev/api-url`
+- SSM table name: `/bandmanager/dev/app-table-name`
+
+Implemented first slice:
+
+- Cognito-protected `GET /me`
+- create/list/get bands
+- create/redeem band join links
+- create/list/update/cancel band events
+- Bandmanager-owned memberships keyed by Cognito `sub`
+- per-band membership checks on band/event routes
+
+Smoke test result:
+
+- unauthenticated `/me` returned `401`
+- temporary Cognito user authenticated successfully
+- authenticated `/me` returned `200`
+- test band creation succeeded
+- test event creation succeeded
+- event listing returned `200`
+- temporary Cognito user and test band records were cleaned up
+
 ## Phase 4: Frontend Integration
 
 Replace local storage with API-backed data.

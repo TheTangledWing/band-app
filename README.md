@@ -53,5 +53,12 @@ The hosted prototype and control-plane dev deployment are documented in:
 
 - `specs/aws-day-one-runbook.md`
 - `specs/control-plane-integration.md`
+- `specs/aws-build-plan.md`
 
 The repo-level `config/dev.yaml` is shared config used by the local control-plane reference checkout during CDK deploys.
+
+Current Bandmanager API:
+
+```text
+https://q108svdio9.execute-api.eu-west-1.amazonaws.com/dev/
+```

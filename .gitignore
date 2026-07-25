@@ -5,4 +5,10 @@ build/
 .env
 .env.*
 *.log
+__pycache__/
+*.pyc
 reference/control-plane/
+backend/.venv/
+backend/cdk.out/
+backend/cdk.context.json
+backend/layers/api/python/
