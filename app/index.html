@@ -3,23 +3,87 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Bandmanager Local Prototype</title>
+    <title>Bandmanager</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
-    <div class="app-shell">
+    <section id="authShell" class="auth-shell hidden">
+      <div class="auth-panel">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true">Bm</div>
+          <div>
+            <h1>Bandmanager</h1>
+            <p id="authModeLabel">Cloud workspace</p>
+          </div>
+        </div>
+
+        <div class="segmented-control auth-mode-control" role="tablist" aria-label="App mode">
+          <button id="cloudModeButton" class="active" type="button">Cloud</button>
+          <button id="localModeButton" type="button">Local</button>
+        </div>
+
+        <form id="signinForm" class="auth-form">
+          <div>
+            <p class="eyebrow">Sign in</p>
+            <h2>Open your band workspace</h2>
+          </div>
+          <label>Email<input id="signinEmail" type="email" autocomplete="email" required></label>
+          <label>Password<input id="signinPassword" type="password" autocomplete="current-password" required></label>
+          <button class="primary-button" type="submit">Sign in</button>
+          <p id="signinMessage" class="form-message"></p>
+        </form>
+
+        <form id="signupForm" class="auth-form">
+          <div>
+            <p class="eyebrow">Create account</p>
+            <h2>Start with email verification</h2>
+          </div>
+          <label>Name<input id="signupName" autocomplete="name" required></label>
+          <label>Email<input id="signupEmail" type="email" autocomplete="email" required></label>
+          <button class="secondary-button" type="submit">Send verification code</button>
+          <p id="signupMessage" class="form-message"></p>
+        </form>
+
+        <form id="verifyForm" class="auth-form hidden">
+          <div>
+            <p class="eyebrow">Verify</p>
+            <h2>Finish signup</h2>
+          </div>
+          <label>Code<input id="verifyCode" inputmode="numeric" autocomplete="one-time-code" required></label>
+          <label>Password<input id="verifyPassword" type="password" autocomplete="new-password" required></label>
+          <button class="primary-button" type="submit">Create account</button>
+          <p id="verifyMessage" class="form-message"></p>
+        </form>
+      </div>
+    </section>
+
+    <div id="appShell" class="app-shell">
       <aside class="sidebar" aria-label="Band workspace">
         <div class="brand-block">
           <div class="brand-mark" aria-hidden="true">Bm</div>
           <div>
             <h1>Bandmanager</h1>
-            <p>Local band workspace</p>
+            <p id="workspaceModeLabel">Local band workspace</p>
           </div>
         </div>
 
-        <section class="panel compact-panel">
+        <section id="localUserPanel" class="panel compact-panel">
           <label for="userSelect">Signed in as</label>
           <select id="userSelect"></select>
+        </section>
+
+        <section id="cloudUserPanel" class="panel compact-panel hidden">
+          <label>Signed in as</label>
+          <div id="cloudUserLabel" class="cloud-user-label"></div>
+          <button id="signOutButton" class="secondary-button" type="button">Sign out</button>
+        </section>
+
+        <section class="panel compact-panel">
+          <label>Mode</label>
+          <div class="segmented-control sidebar-mode-control" role="tablist" aria-label="App mode">
+            <button id="appCloudModeButton" type="button">Cloud</button>
+            <button id="appLocalModeButton" class="active" type="button">Local</button>
+          </div>
         </section>
 
         <section class="panel">
@@ -39,7 +103,7 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
             </button>
           </div>
-          <p class="muted">Share this locally to simulate joining the selected band.</p>
+          <p id="joinLinkHint" class="muted">Share this locally to simulate joining the selected band.</p>
           <div id="joinLink" class="join-link"></div>
           <button id="joinBandButton" class="secondary-button" type="button">Join as selected user</button>
         </section>

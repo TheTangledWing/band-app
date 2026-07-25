@@ -1,4 +1,13 @@
 const STORAGE_KEY = "bandmanager-local-prototype-v1";
+const MODE_KEY = "bandmanager-mode-v1";
+const AUTH_KEY = "bandmanager-auth-v1";
+
+const cloudConfig = {
+  region: "eu-west-1",
+  userPoolClientId: "35rb9p01ephnltfudsa3o04u18",
+  controlPlaneApiUrl: "https://6xlmt0zsbf.execute-api.eu-west-1.amazonaws.com/dev",
+  bandmanagerApiUrl: "https://q108svdio9.execute-api.eu-west-1.amazonaws.com/dev"
+};
 
 const testUsers = [
   { id: "u-alan", name: "Alan Heraty", email: "alan@example.test" },
@@ -15,6 +24,9 @@ const eventTypes = {
 };
 
 let state = loadState();
+let runtimeMode = localStorage.getItem(MODE_KEY) || (location.hostname.includes("amplifyapp.com") ? "cloud" : "local");
+let authState = loadAuthState();
+let pendingSignup = null;
 let currentMonth = new Date("2026-07-01T12:00:00");
 let activeView = "month";
 let activeSection = "calendar";
@@ -25,15 +37,20 @@ let selectedPosterId = null;
 
 const els = {};
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   bindElements();
   bindActions();
-  render();
+  await startApp();
 });
 
 function bindElements() {
   [
-    "userSelect", "bandList", "newBandButton", "joinLink", "copyJoinLinkButton", "joinBandButton",
+    "authShell", "appShell", "cloudModeButton", "localModeButton", "authModeLabel", "signinForm", "signinEmail",
+    "signinPassword", "signinMessage", "signupForm", "signupName", "signupEmail", "signupMessage",
+    "verifyForm", "verifyCode", "verifyPassword", "verifyMessage",
+    "workspaceModeLabel", "localUserPanel", "cloudUserPanel", "cloudUserLabel", "signOutButton",
+    "appCloudModeButton", "appLocalModeButton",
+    "userSelect", "bandList", "newBandButton", "joinLink", "copyJoinLinkButton", "joinBandButton", "joinLinkHint",
     "bandRoleLabel", "activeBandName", "calendarSectionButton", "setlistsSectionButton", "postersSectionButton", "previousMonthButton", "todayButton", "nextMonthButton",
     "newEventButton", "newSetlistButton", "newPosterButton", "monthLabel", "monthSummary", "monthViewButton", "agendaViewButton", "monthView",
     "agendaView", "eventDetail", "editSelectedEventButton", "notificationLog", "clearNotificationsButton",
@@ -56,6 +73,42 @@ function bindElements() {
 }
 
 function bindActions() {
+  els.cloudModeButton.addEventListener("click", async () => {
+    await setRuntimeMode("cloud");
+  });
+
+  els.localModeButton.addEventListener("click", async () => {
+    await setRuntimeMode("local");
+  });
+
+  els.appCloudModeButton.addEventListener("click", async () => {
+    await setRuntimeMode("cloud");
+  });
+
+  els.appLocalModeButton.addEventListener("click", async () => {
+    await setRuntimeMode("local");
+  });
+
+  els.signinForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await signInWithPassword(els.signinEmail.value.trim(), els.signinPassword.value);
+  });
+
+  els.signupForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await startSignup(els.signupName.value.trim(), els.signupEmail.value.trim());
+  });
+
+  els.verifyForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await completeSignup(els.verifyCode.value.trim(), els.verifyPassword.value);
+  });
+
+  els.signOutButton.addEventListener("click", async () => {
+    signOut();
+    await startApp();
+  });
+
   els.userSelect.addEventListener("change", () => {
     state.activeUserId = els.userSelect.value;
     const availableBands = bandsForActiveUser();
@@ -73,16 +126,16 @@ function bindActions() {
   els.closeBandDialogButton.addEventListener("click", () => closeModal(els.bandDialog));
   els.dismissBandDialogButton.addEventListener("click", () => closeModal(els.bandDialog));
 
-  els.bandForm.addEventListener("submit", (event) => {
+  els.bandForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    createBand(els.bandNameInput.value.trim());
+    await createBand(els.bandNameInput.value.trim());
     closeModal(els.bandDialog);
   });
 
   els.copyJoinLinkButton.addEventListener("click", async () => {
-    const text = joinLinkForActiveBand();
+    const text = await joinLinkForActiveBand();
     await copyText(text);
-    addNotification("Join link copied", `Local invite ready for ${activeBand().name}.`, "system");
+    addNotification("Join link copied", `${isCloudMode() ? "Cloud" : "Local"} invite ready for ${activeBand().name}.`, "system");
     saveAndRender();
   });
 
@@ -152,9 +205,9 @@ function bindActions() {
   els.dismissEventDialogButton.addEventListener("click", () => closeModal(els.eventDialog));
   els.cancelEventButton.addEventListener("click", () => cancelCurrentEvent());
 
-  els.eventForm.addEventListener("submit", (event) => {
+  els.eventForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    saveEventFromForm();
+    await saveEventFromForm();
   });
 
   els.clearNotificationsButton.addEventListener("click", () => {
@@ -187,6 +240,230 @@ function bindActions() {
     event.preventDefault();
     savePosterFromForm();
   });
+}
+
+async function startApp() {
+  updateModeControls();
+  if (isCloudMode()) {
+    if (!authState?.idToken) {
+      showAuth();
+      return;
+    }
+    showApp();
+    await loadCloudWorkspace();
+    if (!authState?.idToken) {
+      showAuth();
+      return;
+    }
+    render();
+    return;
+  }
+  showApp();
+  render();
+}
+
+async function setRuntimeMode(mode) {
+  runtimeMode = mode;
+  localStorage.setItem(MODE_KEY, runtimeMode);
+  updateModeControls();
+  await startApp();
+}
+
+function isCloudMode() {
+  return runtimeMode === "cloud";
+}
+
+function updateModeControls() {
+  els.cloudModeButton?.classList.toggle("active", isCloudMode());
+  els.localModeButton?.classList.toggle("active", !isCloudMode());
+  els.appCloudModeButton?.classList.toggle("active", isCloudMode());
+  els.appLocalModeButton?.classList.toggle("active", !isCloudMode());
+  els.authModeLabel.textContent = isCloudMode() ? "Cloud workspace" : "Local prototype";
+  els.workspaceModeLabel.textContent = isCloudMode() ? "Cloud band workspace" : "Local band workspace";
+}
+
+function showAuth() {
+  document.body.classList.add("auth-active");
+  els.authShell.classList.remove("hidden");
+  els.appShell.classList.add("hidden");
+}
+
+function showApp() {
+  document.body.classList.remove("auth-active");
+  els.authShell.classList.add("hidden");
+  els.appShell.classList.remove("hidden");
+}
+
+function loadAuthState() {
+  const stored = localStorage.getItem(AUTH_KEY);
+  if (!stored) return null;
+  try {
+    return JSON.parse(stored);
+  } catch {
+    localStorage.removeItem(AUTH_KEY);
+    return null;
+  }
+}
+
+function saveAuthState(nextAuth) {
+  authState = nextAuth;
+  localStorage.setItem(AUTH_KEY, JSON.stringify(nextAuth));
+}
+
+function signOut() {
+  authState = null;
+  localStorage.removeItem(AUTH_KEY);
+}
+
+async function startSignup(name, email) {
+  setMessage(els.signupMessage, "Sending verification code...");
+  try {
+    const response = await fetch(`${cloudConfig.controlPlaneApiUrl}/public/onboard`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email })
+    });
+    const data = await readJson(response);
+    if (!response.ok) throw new Error(data.detail || "Could not start signup");
+    pendingSignup = { name, email, sessionToken: data.session_token };
+    els.verifyForm.classList.remove("hidden");
+    els.verifyCode.focus();
+    setMessage(els.signupMessage, `Code sent to ${email}.`);
+    setMessage(els.verifyMessage, "Enter the code and choose a password.");
+  } catch (error) {
+    setMessage(els.signupMessage, error.message, true);
+  }
+}
+
+async function completeSignup(code, password) {
+  if (!pendingSignup) {
+    setMessage(els.verifyMessage, "Start signup first.", true);
+    return;
+  }
+  setMessage(els.verifyMessage, "Verifying...");
+  try {
+    let response = await fetch(`${cloudConfig.controlPlaneApiUrl}/public/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: pendingSignup.email,
+        code,
+        session_token: pendingSignup.sessionToken
+      })
+    });
+    let data = await readJson(response);
+    if (!response.ok) throw new Error(data.detail || "Verification failed");
+
+    response = await fetch(`${cloudConfig.controlPlaneApiUrl}/public/complete-signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: pendingSignup.email,
+        password,
+        session_token: pendingSignup.sessionToken
+      })
+    });
+    data = await readJson(response);
+    if (!response.ok) throw new Error(data.detail || "Could not create account");
+
+    await signInWithPassword(pendingSignup.email, password);
+    pendingSignup = null;
+  } catch (error) {
+    setMessage(els.verifyMessage, error.message, true);
+  }
+}
+
+async function signInWithPassword(email, password) {
+  setMessage(els.signinMessage, "Signing in...");
+  try {
+    const data = await cognitoRequest("InitiateAuth", {
+      AuthFlow: "USER_PASSWORD_AUTH",
+      ClientId: cloudConfig.userPoolClientId,
+      AuthParameters: {
+        USERNAME: email,
+        PASSWORD: password
+      }
+    });
+    saveAuthState({
+      email,
+      idToken: data.AuthenticationResult.IdToken,
+      refreshToken: data.AuthenticationResult.RefreshToken,
+      expiresAt: Date.now() + (data.AuthenticationResult.ExpiresIn * 1000)
+    });
+    els.signinPassword.value = "";
+    await startApp();
+  } catch (error) {
+    setMessage(els.signinMessage, error.message, true);
+  }
+}
+
+async function cognitoRequest(target, body) {
+  const response = await fetch(`https://cognito-idp.${cloudConfig.region}.amazonaws.com/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-amz-json-1.1",
+      "X-Amz-Target": `AWSCognitoIdentityProviderService.${target}`
+    },
+    body: JSON.stringify(body)
+  });
+  const data = await readJson(response);
+  if (!response.ok) {
+    throw new Error(data.message || data.__type || "Cognito request failed");
+  }
+  return data;
+}
+
+async function getIdToken() {
+  if (!authState?.idToken) throw new Error("Not signed in");
+  if (authState.expiresAt && authState.expiresAt - Date.now() > 60_000) {
+    return authState.idToken;
+  }
+  const data = await cognitoRequest("InitiateAuth", {
+    AuthFlow: "REFRESH_TOKEN_AUTH",
+    ClientId: cloudConfig.userPoolClientId,
+    AuthParameters: {
+      REFRESH_TOKEN: authState.refreshToken
+    }
+  });
+  saveAuthState({
+    ...authState,
+    idToken: data.AuthenticationResult.IdToken,
+    expiresAt: Date.now() + (data.AuthenticationResult.ExpiresIn * 1000)
+  });
+  return authState.idToken;
+}
+
+async function apiRequest(path, options = {}) {
+  const token = await getIdToken();
+  const response = await fetch(`${cloudConfig.bandmanagerApiUrl}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+      ...(options.headers || {})
+    }
+  });
+  const data = await readJson(response);
+  if (!response.ok) {
+    if (response.status === 401) signOut();
+    throw new Error(data.detail || data.message || "API request failed");
+  }
+  return data;
+}
+
+async function readJson(response) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { detail: text };
+  }
+}
+
+function setMessage(element, message, isError = false) {
+  element.textContent = message || "";
+  element.classList.toggle("error", Boolean(isError));
 }
 
 function loadState() {
@@ -364,12 +641,136 @@ function seedState() {
 }
 
 function saveState() {
+  if (isCloudMode()) return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 function saveAndRender() {
-  saveState();
+  if (!isCloudMode()) saveState();
   render();
+}
+
+async function loadCloudWorkspace() {
+  try {
+    const me = await apiRequest("/me");
+    const bandsResponse = await apiRequest("/bands");
+    const bands = bandsResponse.bands || [];
+    const cloudUser = {
+      id: me.user_id,
+      name: me.name || me.email,
+      email: me.email
+    };
+    const memberships = bands.map((band) => ({
+      bandId: band.band_id,
+      userId: cloudUser.id,
+      role: band.role || "member"
+    }));
+
+    let activeBandId = state.activeBandId;
+    if (!bands.find((band) => band.band_id === activeBandId)) {
+      activeBandId = bands[0]?.band_id || "";
+    }
+
+    const cloudEvents = [];
+    if (activeBandId) {
+      const eventsResponse = await apiRequest(`/bands/${activeBandId}/events`);
+      cloudEvents.push(...(eventsResponse.events || []).map(toLocalEvent));
+    }
+
+    state = {
+      activeUserId: cloudUser.id,
+      activeBandId,
+      cloudUser,
+      bands: bands.map(toLocalBand),
+      memberships,
+      venues: cloudEvents
+        .filter((event) => event.venueId)
+        .map((event) => ({ id: event.venueId, bandId: event.bandId, name: event.venueName, address: event.venueAddress || "", mapLink: "" })),
+      events: cloudEvents,
+      notifications: state.notifications || [],
+      setlists: [],
+      songs: [],
+      setlistSongs: [],
+      posters: []
+    };
+    selectedEventId = cloudEvents[0]?.id || null;
+    await redeemPendingJoinLink();
+    selectedEventId = state.events[0]?.id || null;
+  } catch (error) {
+    addNotification("Cloud load failed", error.message, "system");
+    signOut();
+  }
+}
+
+async function redeemPendingJoinLink() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("join");
+  if (!token) return;
+  const result = await apiRequest(`/join-links/${encodeURIComponent(token)}/redeem`, { method: "POST", body: "{}" });
+  window.history.replaceState({}, "", window.location.pathname);
+  const joinedBandId = result.band?.band_id;
+  if (joinedBandId) {
+    const bandsResponse = await apiRequest("/bands");
+    state.bands = (bandsResponse.bands || []).map(toLocalBand);
+    state.memberships = (bandsResponse.bands || []).map((band) => ({
+      bandId: band.band_id,
+      userId: state.activeUserId,
+      role: band.role || "member"
+    }));
+    state.activeBandId = joinedBandId;
+    await loadCloudEventsForActiveBand();
+    addNotification("Band joined", `You joined ${result.band.name}.`, "system");
+  }
+}
+
+async function loadCloudEventsForActiveBand() {
+  if (!isCloudMode() || !state.activeBandId) return;
+  const eventsResponse = await apiRequest(`/bands/${state.activeBandId}/events`);
+  state.events = (eventsResponse.events || []).map(toLocalEvent);
+  state.venues = state.events
+    .filter((event) => event.venueId)
+    .map((event) => ({ id: event.venueId, bandId: event.bandId, name: event.venueName, address: event.venueAddress || "", mapLink: "" }));
+  selectedEventId = state.events.find((event) => event.id === selectedEventId)?.id || state.events[0]?.id || null;
+}
+
+function toLocalBand(band) {
+  return {
+    id: band.band_id,
+    name: band.name,
+    createdByUserId: band.created_by_user_id,
+    defaultCurrency: band.default_currency || "EUR",
+    timezone: band.timezone || "Europe/Dublin"
+  };
+}
+
+function toLocalEvent(event) {
+  const venueId = event.venue_name ? `venue-${event.event_id}` : "";
+  return {
+    id: event.event_id,
+    bandId: event.band_id,
+    title: event.title,
+    type: event.event_type || "gig",
+    status: event.status || "scheduled",
+    startsAt: toDatetimeInputValue(event.starts_at),
+    endsAt: toDatetimeInputValue(event.ends_at),
+    venueId,
+    venueName: event.venue_name || "",
+    venueAddress: event.venue_address || "",
+    paymentAmount: event.payment_amount === null || event.payment_amount === undefined ? "" : String(event.payment_amount),
+    paymentCurrency: event.payment_currency || "EUR",
+    paymentStatus: event.payment_status || "unknown",
+    paymentNotes: event.payment_notes || "",
+    notes: event.notes || "",
+    attachments: [],
+    createdByUserId: event.created_by_user_id,
+    updatedByUserId: event.updated_by_user_id,
+    updatedAt: event.updated_at
+  };
+}
+
+function toDatetimeInputValue(value) {
+  if (!value) return "";
+  return String(value).replace("Z", "").slice(0, 16);
 }
 
 function render() {
@@ -386,6 +787,17 @@ function render() {
 }
 
 function renderUsers() {
+  updateModeControls();
+  els.localUserPanel.classList.toggle("hidden", isCloudMode());
+  els.cloudUserPanel.classList.toggle("hidden", !isCloudMode());
+  els.joinBandButton.classList.toggle("hidden", isCloudMode());
+  els.joinLinkHint.textContent = isCloudMode()
+    ? "Create a real join link for the selected band."
+    : "Share this locally to simulate joining the selected band.";
+  if (isCloudMode()) {
+    els.cloudUserLabel.textContent = state.cloudUser?.email || authState?.email || "Cloud user";
+    return;
+  }
   els.userSelect.innerHTML = testUsers.map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`).join("");
   els.userSelect.value = state.activeUserId;
 }
@@ -401,8 +813,11 @@ function renderBands() {
   }).join("");
 
   els.bandList.querySelectorAll("[data-band-id]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       state.activeBandId = button.dataset.bandId;
+      if (isCloudMode()) {
+        await loadCloudEventsForActiveBand();
+      }
       selectedEventId = eventsForActiveBand()[0]?.id || null;
       selectedSetlistId = setlistsForActiveBand()[0]?.id || null;
       selectedSongId = songsForSelectedSetlist()[0]?.id || null;
@@ -411,7 +826,7 @@ function renderBands() {
     });
   });
 
-  els.joinLink.textContent = joinLinkForActiveBand();
+  els.joinLink.textContent = joinLinkDisplayForActiveBand();
 }
 
 function renderHeader() {
@@ -788,7 +1203,7 @@ function renderVenueOptions() {
   els.eventLocation.innerHTML = options || `<option value="">No venues yet</option>`;
 }
 
-function saveEventFromForm() {
+async function saveEventFromForm() {
   const active = activeBand();
   if (!active) return;
   let venueId = els.eventLocation.value;
@@ -834,6 +1249,19 @@ function saveEventFromForm() {
     updatedAt: new Date().toISOString()
   };
 
+  if (isCloudMode()) {
+    const body = JSON.stringify(toCloudEventPayload(payload, venueId));
+    const saved = existing
+      ? await apiRequest(`/bands/${active.id}/events/${existing.id}`, { method: "PATCH", body })
+      : await apiRequest(`/bands/${active.id}/events`, { method: "POST", body });
+    await loadCloudEventsForActiveBand();
+    selectedEventId = saved.event_id;
+    addNotification(existing ? "Event changed" : "Event created", `${payload.title} saved in ${active.name}.`, "email + push");
+    closeModal(els.eventDialog);
+    render();
+    return;
+  }
+
   if (existing) {
     state.events = state.events.map((event) => event.id === existing.id ? payload : event);
     addNotification("Event changed", `${payload.title} updated in ${active.name}.`, "email + push");
@@ -846,9 +1274,17 @@ function saveEventFromForm() {
   saveAndRender();
 }
 
-function cancelCurrentEvent() {
+async function cancelCurrentEvent() {
   const event = state.events.find((item) => item.id === els.eventId.value);
   if (!event) return;
+  if (isCloudMode()) {
+    await apiRequest(`/bands/${state.activeBandId}/events/${event.id}/cancel`, { method: "POST", body: "{}" });
+    await loadCloudEventsForActiveBand();
+    addNotification("Event cancelled", `${event.title} cancelled in ${activeBand().name}.`, "email + push");
+    closeModal(els.eventDialog);
+    render();
+    return;
+  }
   event.status = "cancelled";
   event.updatedByUserId = state.activeUserId;
   event.updatedAt = new Date().toISOString();
@@ -857,8 +1293,22 @@ function cancelCurrentEvent() {
   saveAndRender();
 }
 
-function createBand(name) {
+async function createBand(name) {
   if (!name) return;
+  if (isCloudMode()) {
+    const band = await apiRequest("/bands", {
+      method: "POST",
+      body: JSON.stringify({ name, default_currency: "EUR", timezone: "Europe/Dublin" })
+    });
+    await loadCloudWorkspace();
+    state.activeBandId = band.band_id;
+    await loadCloudEventsForActiveBand();
+    selectedSetlistId = null;
+    selectedSongId = null;
+    addNotification("Band created", `${name} is ready for events.`, "system");
+    render();
+    return;
+  }
   const band = { id: createId("b"), name, createdByUserId: state.activeUserId, defaultCurrency: "EUR" };
   state.bands.push(band);
   state.memberships.push({ bandId: band.id, userId: state.activeUserId, role: "owner" });
@@ -867,6 +1317,25 @@ function createBand(name) {
   selectedSongId = null;
   addNotification("Band created", `${name} is ready for events.`, "system");
   saveAndRender();
+}
+
+function toCloudEventPayload(payload, venueId) {
+  const venue = venueFor(venueId);
+  return {
+    title: payload.title,
+    event_type: payload.type,
+    status: payload.status,
+    starts_at: toIsoFromDatetimeLocal(payload.startsAt),
+    ends_at: toIsoFromDatetimeLocal(payload.endsAt),
+    timezone: activeBand()?.timezone || "Europe/Dublin",
+    venue_name: venue?.name || payload.venueName || "",
+    venue_address: venue?.address || payload.venueAddress || "",
+    payment_amount: payload.paymentAmount ? Number(payload.paymentAmount) : null,
+    payment_currency: payload.paymentCurrency || "EUR",
+    payment_status: payload.paymentStatus || "unknown",
+    payment_notes: payload.paymentNotes || "",
+    notes: payload.notes || ""
+  };
 }
 
 function createSetlist(name) {
@@ -967,6 +1436,7 @@ function addNotification(title, body, kind) {
 }
 
 function activeUser() {
+  if (isCloudMode()) return state.cloudUser || { id: state.activeUserId, name: authState?.email || "Cloud user", email: authState?.email || "" };
   return testUsers.find((user) => user.id === state.activeUserId) || testUsers[0];
 }
 
@@ -1045,9 +1515,22 @@ function venueFor(venueId) {
   return state.venues.find((venue) => venue.id === venueId);
 }
 
-function joinLinkForActiveBand() {
+function joinLinkDisplayForActiveBand() {
   const band = activeBand();
-  return band ? `bandmanager.local/join/${band.id}` : "";
+  if (!band) return "";
+  return isCloudMode() ? "Click copy to create a fresh cloud join link." : `bandmanager.local/join/${band.id}`;
+}
+
+async function joinLinkForActiveBand() {
+  const band = activeBand();
+  if (!band) return "";
+  if (!isCloudMode()) return `bandmanager.local/join/${band.id}`;
+  const data = await apiRequest(`/bands/${band.id}/join-links`, {
+    method: "POST",
+    body: JSON.stringify({ default_role: "member" })
+  });
+  els.joinLink.textContent = data.join_url;
+  return data.join_url;
 }
 
 function roleLabel(role) {
@@ -1090,6 +1573,12 @@ function defaultEnd() {
 
 function toDatetimeLocal(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function toIsoFromDatetimeLocal(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
 function formatBytes(bytes = 0) {
