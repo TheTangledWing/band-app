@@ -1,4 +1,5 @@
 const STORAGE_KEY = "bandmanager-local-prototype-v1";
+const CLOUD_CREATIVE_KEY = "bandmanager-cloud-creative-v1";
 const MODE_KEY = "bandmanager-mode-v1";
 const AUTH_KEY = "bandmanager-auth-v1";
 
@@ -272,8 +273,16 @@ async function startApp() {
 }
 
 async function setRuntimeMode(mode) {
+  if (isCloudMode()) saveCloudCreativeState();
   runtimeMode = mode;
   localStorage.setItem(MODE_KEY, runtimeMode);
+  if (!isCloudMode()) {
+    state = loadState();
+    selectedEventId = state.events[0]?.id || null;
+    selectedSetlistId = null;
+    selectedSongId = null;
+    selectedPosterId = null;
+  }
   updateModeControls();
   await startApp();
 }
@@ -655,12 +664,47 @@ function saveState() {
 }
 
 function saveAndRender() {
-  if (!isCloudMode()) saveState();
+  if (isCloudMode()) {
+    saveCloudCreativeState();
+  } else {
+    saveState();
+  }
   render();
+}
+
+function loadCloudCreativeState() {
+  const stored = localStorage.getItem(CLOUD_CREATIVE_KEY);
+  if (!stored) {
+    return { songs: [], setlists: [], setlistSongs: [], posters: [], notifications: [] };
+  }
+  try {
+    const parsed = JSON.parse(stored);
+    return {
+      songs: Array.isArray(parsed.songs) ? parsed.songs : [],
+      setlists: Array.isArray(parsed.setlists) ? parsed.setlists : [],
+      setlistSongs: Array.isArray(parsed.setlistSongs) ? parsed.setlistSongs : [],
+      posters: Array.isArray(parsed.posters) ? parsed.posters : [],
+      notifications: Array.isArray(parsed.notifications) ? parsed.notifications : []
+    };
+  } catch {
+    localStorage.removeItem(CLOUD_CREATIVE_KEY);
+    return { songs: [], setlists: [], setlistSongs: [], posters: [], notifications: [] };
+  }
+}
+
+function saveCloudCreativeState() {
+  localStorage.setItem(CLOUD_CREATIVE_KEY, JSON.stringify({
+    songs: state.songs || [],
+    setlists: state.setlists || [],
+    setlistSongs: state.setlistSongs || [],
+    posters: state.posters || [],
+    notifications: state.notifications || []
+  }));
 }
 
 async function loadCloudWorkspace() {
   try {
+    const creativeState = loadCloudCreativeState();
     const me = await apiRequest("/me");
     const bandsResponse = await apiRequest("/bands");
     const bands = bandsResponse.bands || [];
@@ -696,11 +740,11 @@ async function loadCloudWorkspace() {
         .filter((event) => event.venueId)
         .map((event) => ({ id: event.venueId, bandId: event.bandId, name: event.venueName, address: event.venueAddress || "", mapLink: "" })),
       events: cloudEvents,
-      notifications: state.notifications || [],
-      setlists: [],
-      songs: [],
-      setlistSongs: [],
-      posters: []
+      notifications: creativeState.notifications,
+      setlists: creativeState.setlists,
+      songs: creativeState.songs,
+      setlistSongs: creativeState.setlistSongs,
+      posters: creativeState.posters
     };
     selectedEventId = cloudEvents[0]?.id || null;
     await redeemPendingJoinLink();
