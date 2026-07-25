@@ -9,10 +9,11 @@ First milestone:
 - host the current Bandmanager frontend on AWS Amplify
 - keep it private-ish by not attaching a public custom domain yet
 - use the AWS-provided Amplify URL
-- prove GitHub-to-AWS deployment works
+- prove the current static prototype can be hosted cheaply on AWS
 
 After that:
 
+- optionally connect Amplify to GitHub for automatic deploys
 - deploy the control plane
 - wire Cognito login
 - build the Bandmanager backend API
@@ -24,7 +25,7 @@ The current app is static HTML/CSS/JS. That means we can host it before the back
 This gives us:
 
 - a real AWS URL
-- confidence that GitHub deploys are working
+- confidence that AWS hosting is working
 - a place to later connect Cognito and API URLs
 
 ## Before Starting
@@ -83,6 +84,29 @@ Fallback for early testing:
 
 ## Step 4: Deploy Frontend With AWS Amplify
 
+Current deployment:
+
+- AWS region: `eu-west-1`
+- Amplify app ID: `d2ptmo79sig5go`
+- branch: `production`
+- URL: `https://production.d2ptmo79sig5go.amplifyapp.com/`
+- deployment method: manual zip deploy of the `app/` folder contents
+
+Manual CLI deploy:
+
+1. Zip the contents of `app/`.
+2. Create an Amplify deployment for app `d2ptmo79sig5go`, branch `production`.
+3. Upload the zip to the one-time Amplify upload URL.
+4. Start the deployment job.
+5. Confirm the job succeeds and the live URL returns `200 OK`.
+
+Definition of done:
+
+- Bandmanager loads from the AWS Amplify URL
+- Calendar, Setlists, and Posters tabs are visible
+
+Future GitHub-connected deploy:
+
 In AWS Console:
 
 1. Search for `Amplify`.
@@ -114,11 +138,6 @@ frontend:
 8. Deploy.
 9. Open the Amplify-provided URL.
 10. Confirm the prototype loads.
-
-Definition of done:
-
-- Bandmanager loads from an AWS Amplify URL
-- Calendar, Setlists, and Posters tabs are visible
 
 ## Step 5: Verify SES Sender Email
 
@@ -208,9 +227,8 @@ Do these now:
 
 1. AWS root MFA.
 2. AWS budget alert.
-3. Amplify Hosting deploy from GitHub.
-
-Once the Amplify URL exists, paste it back into the thread and we will wire the repo for that deployment properly.
+3. Amplify Hosting deploy.
+4. Remove/deactivate any root access key that was created during setup.
 
 Cost rule:
 

@@ -6,6 +6,12 @@ Local prototype and specs for Bandmanager, a cross-platform band management app.
 
 The local prototype is in `app/` and runs as a static browser app.
 
+Hosted prototype:
+
+```text
+https://production.d2ptmo79sig5go.amplifyapp.com/
+```
+
 It currently includes:
 
 - band creation and switching
