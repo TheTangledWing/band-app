@@ -65,6 +65,27 @@ class EventPatch(BaseModel):
     notes: str | None = Field(default=None, max_length=4000)
 
 
+class SetlistCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+
+
+class SongCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=160)
+    key: str | None = Field(default=None, max_length=40)
+    tempo: str | None = Field(default=None, max_length=40)
+    attachment_name: str | None = Field(default=None, max_length=240)
+    lyrics: str | None = Field(default=None, max_length=20000)
+    setlist_id: str | None = Field(default=None, max_length=80)
+
+
+class SongPatch(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+    key: str | None = Field(default=None, max_length=40)
+    tempo: str | None = Field(default=None, max_length=40)
+    attachment_name: str | None = Field(default=None, max_length=240)
+    lyrics: str | None = Field(default=None, max_length=20000)
+
+
 class JoinLinkCreate(BaseModel):
     default_role: str = Field(default="member", pattern="^(manager|member|guest)$")
 
@@ -331,6 +352,22 @@ def find_event(band_id: str, event_id: str) -> dict[str, Any]:
     raise HTTPException(status_code=404, detail="Event not found")
 
 
+def find_song(band_id: str, song_id: str) -> dict[str, Any]:
+    result = table.get_item(Key={"PK": f"BAND#{band_id}", "SK": f"SONG#{song_id}"})
+    item = result.get("Item")
+    if not item:
+      raise HTTPException(status_code=404, detail="Song not found")
+    return item
+
+
+def find_setlist(band_id: str, setlist_id: str) -> dict[str, Any]:
+    result = table.get_item(Key={"PK": f"BAND#{band_id}", "SK": f"SETLIST#{setlist_id}"})
+    item = result.get("Item")
+    if not item:
+      raise HTTPException(status_code=404, detail="Setlist not found")
+    return item
+
+
 @app.patch("/bands/{band_id}/events/{event_id}")
 def update_event(band_id: str, event_id: str, body: EventPatch, user: dict[str, str] = Depends(current_user)):
     require_member(band_id, user)
@@ -346,6 +383,108 @@ def update_event(band_id: str, event_id: str, body: EventPatch, user: dict[str, 
     if "starts_at" in updates:
         table.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
         item["SK"] = f"EVENT#{item['starts_at']}#{event_id}"
+    table.put_item(Item=item)
+    return response_item(item)
+
+
+@app.get("/bands/{band_id}/setlists")
+def list_setlists(band_id: str, user: dict[str, str] = Depends(current_user)):
+    require_member(band_id, user)
+    result = table.query(
+        KeyConditionExpression=Key("PK").eq(f"BAND#{band_id}") & Key("SK").begins_with("SETLIST#")
+    )
+    setlists = [response_item(item) for item in result.get("Items", [])]
+    links_result = table.query(
+        KeyConditionExpression=Key("PK").eq(f"BAND#{band_id}") & Key("SK").begins_with("SETLISTSONG#")
+    )
+    setlist_songs = [response_item(item) for item in links_result.get("Items", [])]
+    songs_result = table.query(
+        KeyConditionExpression=Key("PK").eq(f"BAND#{band_id}") & Key("SK").begins_with("SONG#")
+    )
+    songs = [response_item(item) for item in songs_result.get("Items", [])]
+    return {
+        "setlists": sorted(setlists, key=lambda item: item.get("created_at", "")),
+        "songs": sorted(songs, key=lambda item: item.get("title", "").lower()),
+        "setlist_songs": sorted(setlist_songs, key=lambda item: (item.get("setlist_id", ""), item.get("order", 0))),
+    }
+
+
+@app.post("/bands/{band_id}/setlists", status_code=201)
+def create_setlist(band_id: str, body: SetlistCreate, user: dict[str, str] = Depends(current_user)):
+    require_member(band_id, user)
+    get_band_or_404(band_id)
+    setlist_id = str(uuid.uuid4())
+    created_at = now_iso()
+    item = {
+        "PK": f"BAND#{band_id}",
+        "SK": f"SETLIST#{setlist_id}",
+        "entity_type": "setlist",
+        "setlist_id": setlist_id,
+        "band_id": band_id,
+        "name": body.name.strip(),
+        "created_by_user_id": user["user_id"],
+        "updated_by_user_id": user["user_id"],
+        "created_at": created_at,
+        "updated_at": created_at,
+    }
+    table.put_item(Item=item)
+    return response_item(item)
+
+
+@app.post("/bands/{band_id}/songs", status_code=201)
+def create_song(band_id: str, body: SongCreate, user: dict[str, str] = Depends(current_user)):
+    require_member(band_id, user)
+    get_band_or_404(band_id)
+    song_id = str(uuid.uuid4())
+    created_at = now_iso()
+    song = {
+        "PK": f"BAND#{band_id}",
+        "SK": f"SONG#{song_id}",
+        "entity_type": "song",
+        "song_id": song_id,
+        "band_id": band_id,
+        "title": body.title.strip(),
+        "key": body.key or "",
+        "tempo": body.tempo or "",
+        "attachment_name": body.attachment_name or "",
+        "lyrics": body.lyrics or "",
+        "created_by_user_id": user["user_id"],
+        "updated_by_user_id": user["user_id"],
+        "created_at": created_at,
+        "updated_at": created_at,
+    }
+    transact_items = [{"Put": {"TableName": TABLE_NAME, "Item": song}}]
+    if body.setlist_id:
+        find_setlist(band_id, body.setlist_id)
+        links = table.query(
+            KeyConditionExpression=Key("PK").eq(f"BAND#{band_id}") & Key("SK").begins_with(f"SETLISTSONG#{body.setlist_id}#")
+        ).get("Items", [])
+        order = len(links) + 1
+        link = {
+            "PK": f"BAND#{band_id}",
+            "SK": f"SETLISTSONG#{body.setlist_id}#{order:04d}#{song_id}",
+            "entity_type": "setlist_song",
+            "band_id": band_id,
+            "setlist_id": body.setlist_id,
+            "song_id": song_id,
+            "order": order,
+            "created_by_user_id": user["user_id"],
+            "created_at": created_at,
+        }
+        transact_items.append({"Put": {"TableName": TABLE_NAME, "Item": link}})
+    table.meta.client.transact_write_items(TransactItems=transact_items)
+    return response_item(song)
+
+
+@app.patch("/bands/{band_id}/songs/{song_id}")
+def update_song(band_id: str, song_id: str, body: SongPatch, user: dict[str, str] = Depends(current_user)):
+    require_member(band_id, user)
+    item = find_song(band_id, song_id)
+    updates = body.model_dump(exclude_unset=True)
+    for key, value in updates.items():
+        item[key] = value if value is not None else ""
+    item["updated_by_user_id"] = user["user_id"]
+    item["updated_at"] = now_iso()
     table.put_item(Item=item)
     return response_item(item)
 

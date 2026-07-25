@@ -227,17 +227,17 @@ function bindActions() {
 
   els.closeSetlistDialogButton.addEventListener("click", () => closeModal(els.setlistDialog));
   els.dismissSetlistDialogButton.addEventListener("click", () => closeModal(els.setlistDialog));
-  els.setlistForm.addEventListener("submit", (event) => {
+  els.setlistForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    createSetlist(els.setlistNameInput.value.trim());
+    await createSetlist(els.setlistNameInput.value.trim());
     closeModal(els.setlistDialog);
   });
 
   els.closeSongDialogButton.addEventListener("click", () => closeModal(els.songDialog));
   els.dismissSongDialogButton.addEventListener("click", () => closeModal(els.songDialog));
-  els.songForm.addEventListener("submit", (event) => {
+  els.songForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    saveSongFromForm();
+    await saveSongFromForm();
   });
 
   els.closePosterDialogButton.addEventListener("click", () => closeModal(els.posterDialog));
@@ -704,7 +704,6 @@ function saveCloudCreativeState() {
 
 async function loadCloudWorkspace() {
   try {
-    const creativeState = loadCloudCreativeState();
     const me = await apiRequest("/me");
     const bandsResponse = await apiRequest("/bands");
     const bands = bandsResponse.bands || [];
@@ -740,14 +739,15 @@ async function loadCloudWorkspace() {
         .filter((event) => event.venueId)
         .map((event) => ({ id: event.venueId, bandId: event.bandId, name: event.venueName, address: event.venueAddress || "", mapLink: "" })),
       events: cloudEvents,
-      notifications: creativeState.notifications,
-      setlists: creativeState.setlists,
-      songs: creativeState.songs,
-      setlistSongs: creativeState.setlistSongs,
-      posters: creativeState.posters
+      notifications: state.notifications || [],
+      setlists: [],
+      songs: [],
+      setlistSongs: [],
+      posters: loadCloudCreativeState().posters
     };
     selectedEventId = cloudEvents[0]?.id || null;
     await redeemPendingJoinLink();
+    await loadCloudSetlistsForActiveBand();
     selectedEventId = state.events[0]?.id || null;
   } catch (error) {
     addNotification("Cloud load failed", error.message, "system");
@@ -772,6 +772,7 @@ async function redeemPendingJoinLink() {
     }));
     state.activeBandId = joinedBandId;
     await loadCloudEventsForActiveBand();
+    await loadCloudSetlistsForActiveBand();
     addNotification("Band joined", `You joined ${result.band.name}.`, "system");
   }
 }
@@ -784,6 +785,17 @@ async function loadCloudEventsForActiveBand() {
     .filter((event) => event.venueId)
     .map((event) => ({ id: event.venueId, bandId: event.bandId, name: event.venueName, address: event.venueAddress || "", mapLink: "" }));
   selectedEventId = state.events.find((event) => event.id === selectedEventId)?.id || state.events[0]?.id || null;
+}
+
+async function loadCloudSetlistsForActiveBand() {
+  if (!isCloudMode() || !state.activeBandId) return;
+  const response = await apiRequest(`/bands/${state.activeBandId}/setlists`);
+  state.setlists = (response.setlists || []).map(toLocalSetlist);
+  state.songs = (response.songs || []).map(toLocalSong);
+  state.setlistSongs = (response.setlist_songs || []).map(toLocalSetlistSong);
+  selectedSetlistId = state.setlists.find((setlist) => setlist.id === selectedSetlistId)?.id || state.setlists[0]?.id || null;
+  const selectedSongs = songsForSelectedSetlist();
+  selectedSongId = selectedSongs.find((song) => song.id === selectedSongId)?.id || selectedSongs[0]?.id || null;
 }
 
 function toLocalBand(band) {
@@ -818,6 +830,35 @@ function toLocalEvent(event) {
     createdByUserId: event.created_by_user_id,
     updatedByUserId: event.updated_by_user_id,
     updatedAt: event.updated_at
+  };
+}
+
+function toLocalSetlist(setlist) {
+  return {
+    id: setlist.setlist_id,
+    bandId: setlist.band_id,
+    name: setlist.name,
+    createdByUserId: setlist.created_by_user_id
+  };
+}
+
+function toLocalSong(song) {
+  return {
+    id: song.song_id,
+    bandId: song.band_id,
+    title: song.title,
+    key: song.key || "",
+    tempo: song.tempo || "",
+    attachmentName: song.attachment_name || "",
+    lyrics: song.lyrics || ""
+  };
+}
+
+function toLocalSetlistSong(link) {
+  return {
+    setlistId: link.setlist_id,
+    songId: link.song_id,
+    order: Number(link.order || 0)
   };
 }
 
@@ -870,6 +911,7 @@ function renderBands() {
       state.activeBandId = button.dataset.bandId;
       if (isCloudMode()) {
         await loadCloudEventsForActiveBand();
+        await loadCloudSetlistsForActiveBand();
       }
       selectedEventId = eventsForActiveBand()[0]?.id || null;
       selectedSetlistId = setlistsForActiveBand()[0]?.id || null;
@@ -1391,8 +1433,22 @@ function toCloudEventPayload(payload, venueId) {
   };
 }
 
-function createSetlist(name) {
+async function createSetlist(name) {
   if (!name) return;
+  if (isCloudMode()) {
+    const active = activeBand();
+    if (!active) return;
+    const saved = await apiRequest(`/bands/${active.id}/setlists`, {
+      method: "POST",
+      body: JSON.stringify({ name })
+    });
+    await loadCloudSetlistsForActiveBand();
+    selectedSetlistId = saved.setlist_id;
+    selectedSongId = null;
+    addNotification("Setlist created", `${name} added to ${active.name}.`, "system");
+    render();
+    return;
+  }
   const setlist = {
     id: createId("sl"),
     bandId: state.activeBandId,
@@ -1406,7 +1462,7 @@ function createSetlist(name) {
   saveAndRender();
 }
 
-function saveSongFromForm() {
+async function saveSongFromForm() {
   const existing = state.songs.find((song) => song.id === els.songId.value);
   const payload = {
     id: existing?.id || createId("s"),
@@ -1418,6 +1474,28 @@ function saveSongFromForm() {
     lyrics: els.songLyrics.value
   };
   if (!payload.title) return;
+
+  if (isCloudMode()) {
+    const active = activeBand();
+    if (!active) return;
+    const body = JSON.stringify({
+      title: payload.title,
+      key: payload.key,
+      tempo: payload.tempo,
+      attachment_name: payload.attachmentName,
+      lyrics: payload.lyrics,
+      setlist_id: existing ? undefined : selectedSetlistId
+    });
+    const saved = existing
+      ? await apiRequest(`/bands/${active.id}/songs/${existing.id}`, { method: "PATCH", body })
+      : await apiRequest(`/bands/${active.id}/songs`, { method: "POST", body });
+    await loadCloudSetlistsForActiveBand();
+    selectedSongId = saved.song_id;
+    addNotification(existing ? "Song updated" : "Song added", `${payload.title} saved in ${active.name}.`, "system");
+    closeModal(els.songDialog);
+    render();
+    return;
+  }
 
   if (existing) {
     state.songs = state.songs.map((song) => song.id === existing.id ? payload : song);
