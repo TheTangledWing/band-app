@@ -72,10 +72,11 @@
           </div>
         </div>
 
-        <details id="workspaceAdminPanel" class="panel workspace-admin-panel" open>
+        <details id="workspaceAdminPanel" class="panel workspace-admin-panel">
           <summary class="workspace-admin-summary">
+            <svg class="workspace-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
             <span>Workspace</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+            <svg class="workspace-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
           </summary>
 
           <div class="workspace-admin-content">
@@ -109,20 +110,20 @@
               </div>
               <div id="bandList" class="band-list"></div>
             </div>
+
+            <div class="admin-row join-admin-row">
+              <div class="panel-title">
+                <h2>Join Link</h2>
+                <button id="copyJoinLinkButton" class="icon-button" type="button" title="Copy join link" aria-label="Copy join link">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+              </div>
+              <p id="joinLinkHint" class="muted">Share this locally to simulate joining the selected band.</p>
+              <div id="joinLink" class="join-link"></div>
+              <button id="joinBandButton" class="secondary-button" type="button">Join as selected user</button>
+            </div>
           </div>
         </details>
-
-        <section class="panel">
-          <div class="panel-title">
-            <h2>Join Link</h2>
-            <button id="copyJoinLinkButton" class="icon-button" type="button" title="Copy join link" aria-label="Copy join link">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            </button>
-          </div>
-          <p id="joinLinkHint" class="muted">Share this locally to simulate joining the selected band.</p>
-          <div id="joinLink" class="join-link"></div>
-          <button id="joinBandButton" class="secondary-button" type="button">Join as selected user</button>
-        </section>
       </aside>
 
       <main class="main-area">
@@ -163,18 +164,20 @@
           <section class="calendar-toolbar">
             <div>
               <h3 id="monthLabel">July 2026</h3>
-              <p id="monthSummary" class="muted">Calendar and agenda</p>
+              <p id="monthSummary" class="muted">Day, month and year calendar</p>
             </div>
             <div class="segmented-control" role="tablist" aria-label="Calendar view">
+              <button id="dayViewButton" type="button">Day</button>
               <button id="monthViewButton" class="active" type="button">Month</button>
-              <button id="agendaViewButton" type="button">Agenda</button>
+              <button id="yearViewButton" type="button">Year</button>
             </div>
           </section>
 
           <div class="workspace-grid">
             <section class="calendar-panel" aria-label="Calendar">
+              <div id="dayView" class="day-view hidden"></div>
               <div id="monthView" class="month-view"></div>
-              <div id="agendaView" class="agenda-view hidden"></div>
+              <div id="yearView" class="year-view hidden"></div>
             </section>
 
             <aside class="detail-column">

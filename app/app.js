@@ -2,7 +2,7 @@ const STORAGE_KEY = "bandmanager-local-prototype-v1";
 const CLOUD_CREATIVE_KEY = "bandmanager-cloud-creative-v1";
 const MODE_KEY = "bandmanager-mode-v1";
 const AUTH_KEY = "bandmanager-auth-v1";
-const ADMIN_PANEL_KEY = "bandmanager-admin-panel-v1";
+const ADMIN_PANEL_KEY = "bandmanager-admin-panel-v2";
 
 const cloudConfig = {
   region: "eu-west-1",
@@ -30,6 +30,7 @@ let runtimeMode = localStorage.getItem(MODE_KEY) || (location.hostname.includes(
 let authState = loadAuthState();
 let pendingSignup = null;
 let currentMonth = new Date("2026-07-01T12:00:00");
+let selectedCalendarDate = dateKey(currentMonth);
 let activeView = "month";
 let activeSection = "calendar";
 let selectedEventId = state.events[0]?.id || null;
@@ -63,8 +64,8 @@ function bindElements() {
     "appCloudModeButton", "appLocalModeButton",
     "userSelect", "bandList", "newBandButton", "joinLink", "copyJoinLinkButton", "joinBandButton", "joinLinkHint",
     "bandRoleLabel", "activeBandName", "calendarSectionButton", "setlistsSectionButton", "postersSectionButton", "previousMonthButton", "todayButton", "nextMonthButton",
-    "newEventButton", "newSetlistButton", "newPosterButton", "monthLabel", "monthSummary", "monthViewButton", "agendaViewButton", "monthView",
-    "agendaView", "eventDetail", "editSelectedEventButton", "notificationLog", "clearNotificationsButton",
+    "newEventButton", "newSetlistButton", "newPosterButton", "monthLabel", "monthSummary", "dayViewButton", "monthViewButton", "yearViewButton",
+    "dayView", "monthView", "yearView", "eventDetail", "editSelectedEventButton", "notificationLog", "clearNotificationsButton",
     "calendarSection", "setlistsSection", "setlistSummary", "newSongButton", "setlistList", "selectedSetlistName",
     "addSongToSetlistButton", "setlistSongs", "editSongButton", "songDetail",
     "postersSection", "posterSummary", "posterBoard", "editPosterButton", "posterDetail",
@@ -84,8 +85,8 @@ function bindElements() {
 }
 
 function bindActions() {
-  if (localStorage.getItem(ADMIN_PANEL_KEY) === "closed") {
-    els.workspaceAdminPanel.open = false;
+  if (localStorage.getItem(ADMIN_PANEL_KEY) === "open") {
+    els.workspaceAdminPanel.open = true;
   }
 
   els.workspaceAdminPanel.addEventListener("toggle", () => {
@@ -180,18 +181,34 @@ function bindActions() {
   });
 
   els.previousMonthButton.addEventListener("click", () => {
-    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1, 12);
+    if (activeView === "day") {
+      setFocusedCalendarDate(shiftDate(selectedCalendarDate, -1));
+    } else if (activeView === "year") {
+      currentMonth = new Date(currentMonth.getFullYear() - 1, currentMonth.getMonth(), 1, 12);
+    } else {
+      currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1, 12);
+    }
     render();
   });
 
   els.nextMonthButton.addEventListener("click", () => {
-    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1, 12);
+    if (activeView === "day") {
+      setFocusedCalendarDate(shiftDate(selectedCalendarDate, 1));
+    } else if (activeView === "year") {
+      currentMonth = new Date(currentMonth.getFullYear() + 1, currentMonth.getMonth(), 1, 12);
+    } else {
+      currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1, 12);
+    }
     render();
   });
 
   els.todayButton.addEventListener("click", () => {
-    currentMonth = new Date();
-    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1, 12);
+    setFocusedCalendarDate(new Date());
+    render();
+  });
+
+  els.dayViewButton.addEventListener("click", () => {
+    activeView = "day";
     render();
   });
 
@@ -200,8 +217,8 @@ function bindActions() {
     render();
   });
 
-  els.agendaViewButton.addEventListener("click", () => {
-    activeView = "agenda";
+  els.yearViewButton.addEventListener("click", () => {
+    activeView = "year";
     render();
   });
 
@@ -957,18 +974,64 @@ function renderSection() {
 
 function renderCalendar() {
   const events = eventsForActiveBand();
-  const visibleEvents = events.filter((event) => {
+  const monthEvents = events.filter((event) => {
     const date = parseLocalDate(event.startsAt);
     return date.getFullYear() === currentMonth.getFullYear() && date.getMonth() === currentMonth.getMonth();
   });
-  els.monthLabel.textContent = currentMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-  els.monthSummary.textContent = `${visibleEvents.length} event${visibleEvents.length === 1 ? "" : "s"} this month`;
+  const yearEvents = events.filter((event) => parseLocalDate(event.startsAt).getFullYear() === currentMonth.getFullYear());
+  const dayEvents = events.filter((event) => dateKey(parseLocalDate(event.startsAt)) === selectedCalendarDate);
+
+  if (activeView === "day") {
+    els.monthLabel.textContent = formatDate(selectedCalendarDate);
+    els.monthSummary.textContent = `${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"} this day`;
+  } else if (activeView === "year") {
+    els.monthLabel.textContent = String(currentMonth.getFullYear());
+    els.monthSummary.textContent = `${yearEvents.length} event${yearEvents.length === 1 ? "" : "s"} this year`;
+  } else {
+    els.monthLabel.textContent = currentMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    els.monthSummary.textContent = `${monthEvents.length} event${monthEvents.length === 1 ? "" : "s"} this month`;
+  }
+
+  const navUnit = activeView === "day" ? "day" : activeView === "year" ? "year" : "month";
+  els.previousMonthButton.title = `Previous ${navUnit}`;
+  els.previousMonthButton.setAttribute("aria-label", `Previous ${navUnit}`);
+  els.nextMonthButton.title = `Next ${navUnit}`;
+  els.nextMonthButton.setAttribute("aria-label", `Next ${navUnit}`);
+
+  els.dayViewButton.classList.toggle("active", activeView === "day");
   els.monthViewButton.classList.toggle("active", activeView === "month");
-  els.agendaViewButton.classList.toggle("active", activeView === "agenda");
+  els.yearViewButton.classList.toggle("active", activeView === "year");
+  els.dayView.classList.toggle("hidden", activeView !== "day");
   els.monthView.classList.toggle("hidden", activeView !== "month");
-  els.agendaView.classList.toggle("hidden", activeView !== "agenda");
+  els.yearView.classList.toggle("hidden", activeView !== "year");
+  renderDay(dayEvents);
   renderMonth(events);
-  renderAgenda(events);
+  renderYear(events);
+}
+
+function renderDay(events) {
+  const sorted = [...events].sort((a, b) => parseLocalDate(a.startsAt) - parseLocalDate(b.startsAt));
+  if (!sorted.length) {
+    els.dayView.innerHTML = `<div class="detail-empty day-empty">No events on ${escapeHtml(formatDate(selectedCalendarDate))}.</div>`;
+    return;
+  }
+
+  els.dayView.innerHTML = sorted.map((event) => {
+    const venue = venueFor(event.venueId);
+    return `<button class="agenda-item" type="button" data-event-id="${event.id}">
+      <div class="agenda-date">${escapeHtml(formatTime(event.startsAt))}<br>${escapeHtml(eventTypes[event.type] || event.type)}</div>
+      <div>
+        <h4>${escapeHtml(event.title)}</h4>
+        <p class="muted">${escapeHtml(venue?.name || "No venue")}</p>
+        <div class="tag-row">
+          ${event.paymentAmount ? `<span class="tag money">${escapeHtml(event.paymentCurrency)} ${escapeHtml(event.paymentAmount)}</span>` : ""}
+          <span class="tag status">${escapeHtml(event.status)}</span>
+          ${event.attachments?.length ? `<span class="tag">${event.attachments.length} attachment${event.attachments.length === 1 ? "" : "s"}</span>` : ""}
+        </div>
+      </div>
+    </button>`;
+  }).join("");
+  bindEventButtons(els.dayView);
 }
 
 function renderMonth(events) {
@@ -983,8 +1046,11 @@ function renderMonth(events) {
     const day = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
     const key = dateKey(day);
     const dayEvents = events.filter((event) => dateKey(parseLocalDate(event.startsAt)) === key);
-    html += `<div class="day-cell ${day.getMonth() !== currentMonth.getMonth() ? "outside" : ""} ${key === todayKey ? "today" : ""}">
-      <div class="day-head"><span>${day.getDate()}</span><span>${dayEvents.length ? dayEvents.length : ""}</span></div>
+    html += `<div class="day-cell ${day.getMonth() !== currentMonth.getMonth() ? "outside" : ""} ${key === todayKey ? "today" : ""} ${key === selectedCalendarDate ? "selected" : ""}">
+      <div class="day-head">
+        <button class="day-number" type="button" data-calendar-date="${key}">${day.getDate()}</button>
+        <span>${dayEvents.length ? dayEvents.length : ""}</span>
+      </div>
       <div class="day-events">
         ${dayEvents.map((event) => eventChip(event)).join("")}
       </div>
@@ -992,31 +1058,31 @@ function renderMonth(events) {
   }
 
   els.monthView.innerHTML = html;
+  bindCalendarDateButtons(els.monthView);
   bindEventButtons(els.monthView);
 }
 
-function renderAgenda(events) {
-  const sorted = [...events].sort((a, b) => parseLocalDate(a.startsAt) - parseLocalDate(b.startsAt));
-  if (!sorted.length) {
-    els.agendaView.innerHTML = `<div class="detail-empty" style="padding: 18px;">No events in this band yet.</div>`;
-    return;
-  }
-  els.agendaView.innerHTML = sorted.map((event) => {
-    const venue = venueFor(event.venueId);
-    return `<button class="agenda-item" type="button" data-event-id="${event.id}">
-      <div class="agenda-date">${formatDate(event.startsAt)}<br>${formatTime(event.startsAt)}</div>
-      <div>
-        <h4>${escapeHtml(event.title)}</h4>
-        <p class="muted">${escapeHtml(venue?.name || "No venue")} · ${escapeHtml(eventTypes[event.type] || event.type)}</p>
-        <div class="tag-row">
-          ${event.paymentAmount ? `<span class="tag money">${escapeHtml(event.paymentCurrency)} ${escapeHtml(event.paymentAmount)}</span>` : ""}
-          <span class="tag status">${escapeHtml(event.status)}</span>
-          ${event.attachments?.length ? `<span class="tag">${event.attachments.length} attachment${event.attachments.length === 1 ? "" : "s"}</span>` : ""}
-        </div>
-      </div>
+function renderYear(events) {
+  const year = currentMonth.getFullYear();
+  const monthNames = Array.from({ length: 12 }, (_, month) =>
+    new Date(year, month, 1, 12).toLocaleDateString(undefined, { month: "short" })
+  );
+
+  els.yearView.innerHTML = monthNames.map((name, month) => {
+    const monthEvents = events
+      .filter((event) => {
+        const date = parseLocalDate(event.startsAt);
+        return date.getFullYear() === year && date.getMonth() === month;
+      })
+      .sort((a, b) => parseLocalDate(a.startsAt) - parseLocalDate(b.startsAt));
+    const nextEvent = monthEvents[0];
+    return `<button class="year-month" type="button" data-calendar-month="${month}">
+      <span class="year-month-name">${escapeHtml(name)}</span>
+      <span class="year-month-count">${monthEvents.length}</span>
+      <span class="year-month-preview">${nextEvent ? `${escapeHtml(formatDate(nextEvent.startsAt))} · ${escapeHtml(nextEvent.title)}` : "No events"}</span>
     </button>`;
   }).join("");
-  bindEventButtons(els.agendaView);
+  bindCalendarMonthButtons(els.yearView);
 }
 
 function eventChip(event) {
@@ -1031,6 +1097,27 @@ function bindEventButtons(root) {
     button.addEventListener("click", () => {
       selectedEventId = button.dataset.eventId;
       renderEventDetail();
+    });
+  });
+}
+
+function bindCalendarDateButtons(root) {
+  root.querySelectorAll("[data-calendar-date]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setFocusedCalendarDate(button.dataset.calendarDate);
+      activeView = "day";
+      render();
+    });
+  });
+}
+
+function bindCalendarMonthButtons(root) {
+  root.querySelectorAll("[data-calendar-month]").forEach((button) => {
+    button.addEventListener("click", () => {
+      currentMonth = new Date(currentMonth.getFullYear(), Number(button.dataset.calendarMonth), 1, 12);
+      selectedCalendarDate = dateKey(currentMonth);
+      activeView = "month";
+      render();
     });
   });
 }
@@ -1685,7 +1772,22 @@ function dateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+function setFocusedCalendarDate(value) {
+  const date = value instanceof Date ? value : parseLocalDate(value);
+  selectedCalendarDate = dateKey(date);
+  currentMonth = new Date(date.getFullYear(), date.getMonth(), 1, 12);
+}
+
+function shiftDate(value, days) {
+  const date = value instanceof Date ? value : parseLocalDate(value);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days, 12);
+}
+
 function parseLocalDate(value) {
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day, 12);
+  }
   return new Date(value);
 }
 
