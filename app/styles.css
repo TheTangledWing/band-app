@@ -220,6 +220,59 @@ p {
   overflow: hidden;
 }
 
+.workspace-admin-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 15px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(247, 250, 249, 0.78);
+  list-style: none;
+}
+
+.workspace-admin-summary::-webkit-details-marker {
+  display: none;
+}
+
+.workspace-admin-summary::marker {
+  content: "";
+}
+
+.workspace-admin-summary:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.72);
+  outline-offset: -4px;
+}
+
+.workspace-admin-summary svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.18s ease;
+}
+
+.workspace-admin-panel[open] .workspace-admin-summary {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.workspace-admin-panel[open] .workspace-admin-summary svg {
+  transform: rotate(180deg);
+}
+
+.workspace-admin-content {
+  display: grid;
+  gap: 0;
+}
+
 .admin-row {
   display: grid;
   gap: 8px;

@@ -2,6 +2,7 @@ const STORAGE_KEY = "bandmanager-local-prototype-v1";
 const CLOUD_CREATIVE_KEY = "bandmanager-cloud-creative-v1";
 const MODE_KEY = "bandmanager-mode-v1";
 const AUTH_KEY = "bandmanager-auth-v1";
+const ADMIN_PANEL_KEY = "bandmanager-admin-panel-v1";
 
 const cloudConfig = {
   region: "eu-west-1",
@@ -58,7 +59,7 @@ function bindElements() {
     "authShell", "appShell", "cloudModeButton", "localModeButton", "authModeLabel", "signinForm", "signinEmail",
     "signinPassword", "signinMessage", "signupForm", "signupName", "signupEmail", "signupMessage",
     "verifyForm", "verifyCode", "verifyPassword", "verifyMessage",
-    "workspaceModeLabel", "localUserPanel", "cloudUserPanel", "cloudUserLabel", "signOutButton",
+    "workspaceModeLabel", "workspaceAdminPanel", "localUserPanel", "cloudUserPanel", "cloudUserLabel", "signOutButton",
     "appCloudModeButton", "appLocalModeButton",
     "userSelect", "bandList", "newBandButton", "joinLink", "copyJoinLinkButton", "joinBandButton", "joinLinkHint",
     "bandRoleLabel", "activeBandName", "calendarSectionButton", "setlistsSectionButton", "postersSectionButton", "previousMonthButton", "todayButton", "nextMonthButton",
@@ -83,6 +84,14 @@ function bindElements() {
 }
 
 function bindActions() {
+  if (localStorage.getItem(ADMIN_PANEL_KEY) === "closed") {
+    els.workspaceAdminPanel.open = false;
+  }
+
+  els.workspaceAdminPanel.addEventListener("toggle", () => {
+    localStorage.setItem(ADMIN_PANEL_KEY, els.workspaceAdminPanel.open ? "open" : "closed");
+  });
+
   els.cloudModeButton.addEventListener("click", async () => {
     await setRuntimeMode("cloud");
   });
