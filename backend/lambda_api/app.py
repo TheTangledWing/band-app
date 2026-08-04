@@ -452,6 +452,18 @@ def create_setlist(band_id: str, body: SetlistCreate, user: dict[str, str] = Dep
     return response_item(item)
 
 
+@app.post("/bands/{band_id}/setlists/{setlist_id}/delete")
+def delete_setlist(band_id: str, setlist_id: str, user: dict[str, str] = Depends(current_user)):
+    require_member(band_id, user)
+    item = find_setlist(band_id, setlist_id)
+    links = setlist_song_links(band_id, setlist_id)
+    table.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
+    with table.batch_writer() as batch:
+        for link in links:
+            batch.delete_item(Key={"PK": link["PK"], "SK": link["SK"]})
+    return {"deleted": True, "setlist_id": setlist_id}
+
+
 @app.post("/bands/{band_id}/songs", status_code=201)
 def create_song(band_id: str, body: SongCreate, user: dict[str, str] = Depends(current_user)):
     require_member(band_id, user)

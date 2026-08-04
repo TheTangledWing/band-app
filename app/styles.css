@@ -532,8 +532,31 @@ textarea:focus {
   color: #fff;
 }
 
-.app-nav {
-  margin-right: 6px;
+.sidebar-nav-panel {
+  padding: 8px;
+}
+
+.sidebar-nav {
+  display: grid;
+  gap: 6px;
+}
+
+.sidebar-nav button {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 9px 11px;
+  background: transparent;
+  color: rgba(247, 250, 249, 0.74);
+  text-align: left;
+  font-weight: 800;
+}
+
+.sidebar-nav button.active {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .workspace-grid {
@@ -829,9 +852,69 @@ textarea:focus {
 }
 
 .setlist-list,
-.setlist-songs {
+.setlist-songs,
+.band-list {
   display: grid;
   gap: 8px;
+}
+
+.band-row,
+.setlist-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.band-row .band-item,
+.setlist-row .setlist-item {
+  min-width: 0;
+}
+
+.band-row.active .band-item,
+.setlist-row.active .setlist-item {
+  border-color: var(--primary);
+  background: #e8f5f1;
+  color: #192024;
+}
+
+.band-default-button,
+.setlist-delete-button {
+  width: 38px;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--muted);
+}
+
+.band-default-button svg,
+.setlist-delete-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.band-default-button.active {
+  color: #9a6b00;
+  background: #fff3d8;
+  border-color: #ead39b;
+}
+
+.band-default-button.active svg {
+  fill: currentColor;
+}
+
+.setlist-delete-button:hover {
+  background: #fff2ef;
+  color: #9b2f20;
 }
 
 .setlist-item,

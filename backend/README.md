@@ -24,6 +24,7 @@ AWS backend for the first Bandmanager cloud slice.
 - `POST /bands/{band_id}/events/{event_id}/cancel`
 - `GET /bands/{band_id}/setlists`
 - `POST /bands/{band_id}/setlists`
+- `POST /bands/{band_id}/setlists/{setlist_id}/delete`
 - `POST /bands/{band_id}/songs`
 - `PATCH /bands/{band_id}/songs/{song_id}`
 - `POST /bands/{band_id}/setlists/{setlist_id}/songs/{song_id}/played`

@@ -3,6 +3,7 @@ const CLOUD_CREATIVE_KEY = "bandmanager-cloud-creative-v1";
 const MODE_KEY = "bandmanager-mode-v1";
 const AUTH_KEY = "bandmanager-auth-v1";
 const ADMIN_PANEL_KEY = "bandmanager-admin-panel-v2";
+const DEFAULT_BAND_KEY = "bandmanager-default-band-v1";
 
 const cloudConfig = {
   region: "eu-west-1",
@@ -132,9 +133,11 @@ function bindActions() {
   els.userSelect.addEventListener("change", () => {
     state.activeUserId = els.userSelect.value;
     const availableBands = bandsForActiveUser();
-    if (!availableBands.find((band) => band.id === state.activeBandId)) {
-      state.activeBandId = availableBands[0]?.id || state.bands[0]?.id;
-    }
+    const defaultBandId = defaultBandIdFor(state.activeUserId);
+    state.activeBandId = availableBands.find((band) => band.id === defaultBandId)?.id
+      || (availableBands.find((band) => band.id === state.activeBandId) ? state.activeBandId : "")
+      || availableBands[0]?.id
+      || state.bands[0]?.id;
     saveAndRender();
   });
 
@@ -744,7 +747,8 @@ async function loadCloudWorkspace() {
       role: band.role || "member"
     }));
 
-    let activeBandId = state.activeBandId;
+    const defaultBandId = defaultBandIdFor(cloudUser.id);
+    let activeBandId = bands.find((band) => band.band_id === defaultBandId)?.band_id || state.activeBandId;
     if (!bands.find((band) => band.band_id === activeBandId)) {
       activeBandId = bands[0]?.band_id || "";
     }
@@ -925,12 +929,18 @@ function renderUsers() {
 
 function renderBands() {
   const bands = bandsForActiveUser();
+  const defaultBandId = defaultBandIdFor(state.activeUserId);
   els.bandList.innerHTML = bands.map((band) => {
     const membership = membershipFor(band.id, state.activeUserId);
-    return `<button class="band-item ${band.id === state.activeBandId ? "active" : ""}" type="button" data-band-id="${band.id}">
-      ${escapeHtml(band.name)}
-      <span>${escapeHtml(roleLabel(membership?.role || "member"))}</span>
-    </button>`;
+    return `<div class="band-row ${band.id === state.activeBandId ? "active" : ""}">
+      <button class="band-item" type="button" data-band-id="${band.id}">
+        <strong>${escapeHtml(band.name)}</strong>
+        <span>${escapeHtml(roleLabel(membership?.role || "member"))}${band.id === defaultBandId ? " · Default" : ""}</span>
+      </button>
+      <button class="band-default-button ${band.id === defaultBandId ? "active" : ""}" type="button" data-default-band-id="${band.id}" title="Make default band" aria-label="Make ${escapeAttr(band.name)} the default band">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1-4.4-4.3 6.1-.9Z"></path></svg>
+      </button>
+    </div>`;
   }).join("");
 
   els.bandList.querySelectorAll("[data-band-id]").forEach((button) => {
@@ -944,6 +954,23 @@ function renderBands() {
       selectedSetlistId = setlistsForActiveBand()[0]?.id || null;
       selectedSongId = songsForSelectedSetlist()[0]?.id || null;
       selectedPosterId = postersForActiveBand()[0]?.id || null;
+      saveAndRender();
+    });
+  });
+
+  els.bandList.querySelectorAll("[data-default-band-id]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      state.activeBandId = button.dataset.defaultBandId;
+      setDefaultBandId(state.activeUserId, state.activeBandId);
+      if (isCloudMode()) {
+        await loadCloudEventsForActiveBand();
+        await loadCloudSetlistsForActiveBand();
+      }
+      selectedEventId = eventsForActiveBand()[0]?.id || null;
+      selectedSetlistId = setlistsForActiveBand()[0]?.id || null;
+      selectedSongId = songsForSelectedSetlist()[0]?.id || null;
+      selectedPosterId = postersForActiveBand()[0]?.id || null;
+      addNotification("Default band set", `${activeBand().name} will open first on this device.`, "system");
       saveAndRender();
     });
   });
@@ -1179,10 +1206,15 @@ function renderSetlists() {
   } else {
     els.setlistList.innerHTML = setlists.map((setlist) => {
       const count = setlistSongLinks(setlist.id).length;
-      return `<button class="setlist-item ${setlist.id === selectedSetlistId ? "active" : ""}" type="button" data-setlist-id="${setlist.id}">
-        <strong>${escapeHtml(setlist.name)}</strong>
-        <span>${count} song${count === 1 ? "" : "s"}</span>
-      </button>`;
+      return `<div class="setlist-row ${setlist.id === selectedSetlistId ? "active" : ""}">
+        <button class="setlist-item" type="button" data-setlist-id="${setlist.id}">
+          <strong>${escapeHtml(setlist.name)}</strong>
+          <span>${count} song${count === 1 ? "" : "s"}</span>
+        </button>
+        <button class="setlist-delete-button" type="button" data-delete-setlist-id="${setlist.id}" title="Delete setlist" aria-label="Delete ${escapeAttr(setlist.name)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m10 11 .5 7"></path><path d="m14 11-.5 7"></path><path d="M6 6l1 14h10l1-14"></path></svg>
+        </button>
+      </div>`;
     }).join("");
   }
 
@@ -1191,6 +1223,12 @@ function renderSetlists() {
       selectedSetlistId = button.dataset.setlistId;
       selectedSongId = songsForSelectedSetlist()[0]?.id || null;
       renderSetlists();
+    });
+  });
+
+  els.setlistList.querySelectorAll("[data-delete-setlist-id]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await deleteSetlist(button.dataset.deleteSetlistId);
     });
   });
 
@@ -1538,6 +1576,7 @@ async function createBand(name) {
     });
     await loadCloudWorkspace();
     state.activeBandId = band.band_id;
+    setDefaultBandId(state.activeUserId, band.band_id);
     await loadCloudEventsForActiveBand();
     selectedSetlistId = null;
     selectedSongId = null;
@@ -1549,6 +1588,7 @@ async function createBand(name) {
   state.bands.push(band);
   state.memberships.push({ bandId: band.id, userId: state.activeUserId, role: "owner" });
   state.activeBandId = band.id;
+  setDefaultBandId(state.activeUserId, band.id);
   selectedSetlistId = null;
   selectedSongId = null;
   addNotification("Band created", `${name} is ready for events.`, "system");
@@ -1600,6 +1640,35 @@ async function createSetlist(name) {
   selectedSetlistId = setlist.id;
   selectedSongId = null;
   addNotification("Setlist created", `${name} added to ${activeBand().name}.`, "system");
+  saveAndRender();
+}
+
+async function deleteSetlist(setlistId) {
+  const setlist = state.setlists.find((item) => item.id === setlistId);
+  if (!setlist) return;
+  const okay = window.confirm(`Delete ${setlist.name}? Songs will stay in the band library.`);
+  if (!okay) return;
+
+  if (isCloudMode()) {
+    const active = activeBand();
+    if (!active) return;
+    await apiRequest(`/bands/${active.id}/setlists/${setlistId}/delete`, {
+      method: "POST",
+      body: "{}"
+    });
+    await loadCloudSetlistsForActiveBand();
+    addNotification("Setlist deleted", `${setlist.name} was deleted.`, "system");
+    render();
+    return;
+  }
+
+  state.setlists = state.setlists.filter((item) => item.id !== setlistId);
+  state.setlistSongs = state.setlistSongs.filter((link) => link.setlistId !== setlistId);
+  if (selectedSetlistId === setlistId) {
+    selectedSetlistId = setlistsForActiveBand()[0]?.id || null;
+    selectedSongId = songsForSelectedSetlist()[0]?.id || null;
+  }
+  addNotification("Setlist deleted", `${setlist.name} was deleted.`, "system");
   saveAndRender();
 }
 
@@ -1804,6 +1873,25 @@ function membershipFor(bandId, userId) {
 
 function bandsForActiveUser() {
   return state.bands.filter((band) => membershipFor(band.id, state.activeUserId));
+}
+
+function defaultBandIdFor(userId = state.activeUserId) {
+  const defaults = loadDefaultBandPreferences();
+  return defaults[`${runtimeMode}:${userId || "local"}`] || "";
+}
+
+function setDefaultBandId(userId, bandId) {
+  const defaults = loadDefaultBandPreferences();
+  defaults[`${runtimeMode}:${userId || "local"}`] = bandId;
+  localStorage.setItem(DEFAULT_BAND_KEY, JSON.stringify(defaults));
+}
+
+function loadDefaultBandPreferences() {
+  try {
+    return JSON.parse(localStorage.getItem(DEFAULT_BAND_KEY) || "{}");
+  } catch {
+    return {};
+  }
 }
 
 function eventsForActiveBand() {
