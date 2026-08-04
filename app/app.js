@@ -38,6 +38,7 @@ let selectedEventId = state.events[0]?.id || null;
 let selectedSetlistId = null;
 let selectedSongId = null;
 let selectedPosterId = null;
+let playGigSession = null;
 
 const els = {};
 
@@ -67,15 +68,17 @@ function bindElements() {
     "bandRoleLabel", "activeBandName", "calendarSectionButton", "setlistsSectionButton", "postersSectionButton", "previousMonthButton", "todayButton", "nextMonthButton",
     "newEventButton", "newSetlistButton", "newPosterButton", "monthLabel", "monthSummary", "dayViewButton", "monthViewButton", "yearViewButton",
     "dayView", "monthView", "yearView", "eventDetail", "editSelectedEventButton", "notificationLog", "clearNotificationsButton",
-    "calendarSection", "setlistsSection", "setlistSummary", "newSongButton", "setlistList", "selectedSetlistName",
+    "calendarSection", "setlistsSection", "setlistSummary", "playGigButton", "newSongButton", "setlistList", "selectedSetlistName",
     "addSongToSetlistButton", "setlistSongs", "editSongButton", "songDetail",
+    "playGigShell", "playGigTitle", "playGigProgress", "playGigSongs", "exitPlayGigButton",
     "postersSection", "posterSummary", "posterBoard", "editPosterButton", "posterDetail",
     "eventDialog", "eventForm", "eventDialogTitle", "eventId", "eventTitle", "eventType", "eventStart",
     "eventEnd", "eventStatus", "eventLocation", "newVenueName", "paymentAmount", "paymentCurrency",
     "paymentStatus", "paymentNotes", "eventNotes", "eventAttachments", "existingAttachments",
     "cancelEventButton", "closeEventDialogButton", "dismissEventDialogButton", "bandDialog", "bandForm",
     "bandNameInput", "closeBandDialogButton", "dismissBandDialogButton", "setlistDialog", "setlistForm",
-    "setlistNameInput", "closeSetlistDialogButton", "dismissSetlistDialogButton", "songDialog", "songForm",
+    "setlistNameInput", "closeSetlistDialogButton", "dismissSetlistDialogButton", "playGigDialog", "playGigForm",
+    "playGigSetlistSelect", "closePlayGigDialogButton", "dismissPlayGigDialogButton", "songDialog", "songForm",
     "songDialogTitle", "songId", "songTitle", "songKey", "songTempo", "songAttachmentName", "songLyrics",
     "closeSongDialogButton", "dismissSongDialogButton", "posterDialog", "posterForm", "posterDialogTitle",
     "posterId", "posterTitle", "posterStatus", "posterEvent", "posterOwner", "posterFile", "posterFileName",
@@ -228,6 +231,8 @@ function bindActions() {
   els.newEventButton.addEventListener("click", () => openEventDialog());
   els.newSetlistButton.addEventListener("click", () => openSetlistDialog());
   els.newPosterButton.addEventListener("click", () => openPosterDialog());
+  els.playGigButton.addEventListener("click", () => openPlayGigDialog());
+  els.exitPlayGigButton.addEventListener("click", () => exitPlayGigMode());
   els.newSongButton.addEventListener("click", () => openSongDialog());
   els.addSongToSetlistButton.addEventListener("click", () => openAddSongToSetlistDialog());
   els.editSongButton.addEventListener("click", () => {
@@ -260,6 +265,14 @@ function bindActions() {
     event.preventDefault();
     await createSetlist(els.setlistNameInput.value.trim());
     closeModal(els.setlistDialog);
+  });
+
+  els.closePlayGigDialogButton.addEventListener("click", () => closeModal(els.playGigDialog));
+  els.dismissPlayGigDialogButton.addEventListener("click", () => closeModal(els.playGigDialog));
+  els.playGigForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    startPlayGigMode(els.playGigSetlistSelect.value);
+    closeModal(els.playGigDialog);
   });
 
   els.closeSongDialogButton.addEventListener("click", () => closeModal(els.songDialog));
@@ -909,6 +922,7 @@ function render() {
   renderNotifications();
   renderSetlists();
   renderPosters();
+  renderPlayGig();
 }
 
 function renderUsers() {
@@ -1309,6 +1323,162 @@ function renderSetlistSongs() {
   });
 }
 
+function startPlayGigMode(setlistId) {
+  const setlist = state.setlists.find((item) => item.id === setlistId);
+  if (!setlist) return;
+  const links = setlistSongLinks(setlistId);
+  const songs = links
+    .map((link) => {
+      const song = state.songs.find((item) => item.id === link.songId);
+      if (!song) return null;
+      return {
+        sessionId: createId("gig-song"),
+        songId: song.id,
+        title: song.title,
+        key: song.key || "",
+        tempo: song.tempo || "",
+        played: false
+      };
+    })
+    .filter(Boolean);
+
+  if (!songs.length) {
+    addNotification("Empty setlist", `${setlist.name} has no songs to play.`, "system");
+    render();
+    return;
+  }
+
+  playGigSession = {
+    setlistId,
+    setlistName: setlist.name,
+    startedAt: new Date().toISOString(),
+    songs
+  };
+  els.appShell.classList.add("hidden");
+  els.playGigShell.classList.remove("hidden");
+  renderPlayGig();
+}
+
+function renderPlayGig() {
+  if (!playGigSession) {
+    els.playGigShell.classList.add("hidden");
+    return;
+  }
+
+  const playedCount = playGigSession.songs.filter((song) => song.played).length;
+  const total = playGigSession.songs.length;
+  els.playGigTitle.textContent = playGigSession.setlistName;
+  els.playGigProgress.textContent = `${playedCount} of ${total} played · one-off gig copy`;
+
+  if (!total) {
+    els.playGigSongs.innerHTML = `<div class="play-gig-empty">No songs left in this gig copy.</div>`;
+    return;
+  }
+
+  els.playGigSongs.innerHTML = playGigSession.songs.map((song, index) => `
+    <div class="play-song-row ${song.played ? "played" : ""}" draggable="true" data-session-song-id="${song.sessionId}">
+      <button class="play-drag-handle" type="button" title="Drag to reorder" aria-label="Drag to reorder">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"></path></svg>
+      </button>
+      <span class="play-song-number">${index + 1}</span>
+      <button class="play-played-toggle" type="button" data-play-session-id="${song.sessionId}" title="${song.played ? "Mark not played" : "Mark played"}" aria-label="${song.played ? "Mark not played" : "Mark played"}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>
+      </button>
+      <div class="play-song-main">
+        <strong>${escapeHtml(song.title)}</strong>
+        <small>${escapeHtml([song.key, song.tempo].filter(Boolean).join(" · ") || "No key/tempo")}</small>
+      </div>
+      <div class="play-song-move-buttons" aria-label="Move ${escapeAttr(song.title)}">
+        <button type="button" data-move-session-id="${song.sessionId}" data-move-direction="-1" title="Move up" aria-label="Move up">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m18 15-6-6-6 6"></path></svg>
+        </button>
+        <button type="button" data-move-session-id="${song.sessionId}" data-move-direction="1" title="Move down" aria-label="Move down">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+        </button>
+      </div>
+      <button class="play-remove-button" type="button" data-remove-session-id="${song.sessionId}" title="Remove from this gig" aria-label="Remove from this gig">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m10 11 .5 7"></path><path d="m14 11-.5 7"></path><path d="M6 6l1 14h10l1-14"></path></svg>
+      </button>
+    </div>
+  `).join("");
+
+  bindPlayGigRows();
+}
+
+function bindPlayGigRows() {
+  els.playGigSongs.querySelectorAll("[data-play-session-id]").forEach((button) => {
+    button.addEventListener("click", () => togglePlayGigSong(button.dataset.playSessionId));
+  });
+
+  els.playGigSongs.querySelectorAll("[data-remove-session-id]").forEach((button) => {
+    button.addEventListener("click", () => removePlayGigSong(button.dataset.removeSessionId));
+  });
+
+  els.playGigSongs.querySelectorAll("[data-move-session-id]").forEach((button) => {
+    button.addEventListener("click", () => movePlayGigSong(button.dataset.moveSessionId, Number(button.dataset.moveDirection)));
+  });
+
+  els.playGigSongs.querySelectorAll(".play-song-row").forEach((row) => {
+    row.addEventListener("dragstart", (event) => {
+      row.classList.add("dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", row.dataset.sessionSongId);
+    });
+    row.addEventListener("dragend", () => row.classList.remove("dragging"));
+    row.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      row.classList.add("drag-over");
+    });
+    row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
+    row.addEventListener("drop", (event) => {
+      event.preventDefault();
+      row.classList.remove("drag-over");
+      movePlayGigSongBefore(event.dataTransfer.getData("text/plain"), row.dataset.sessionSongId);
+    });
+  });
+}
+
+function togglePlayGigSong(sessionId) {
+  const song = playGigSession?.songs.find((item) => item.sessionId === sessionId);
+  if (!song) return;
+  song.played = !song.played;
+  renderPlayGig();
+}
+
+function removePlayGigSong(sessionId) {
+  if (!playGigSession) return;
+  playGigSession.songs = playGigSession.songs.filter((song) => song.sessionId !== sessionId);
+  renderPlayGig();
+}
+
+function movePlayGigSong(sessionId, direction) {
+  if (!playGigSession) return;
+  const index = playGigSession.songs.findIndex((song) => song.sessionId === sessionId);
+  const nextIndex = index + direction;
+  if (index < 0 || nextIndex < 0 || nextIndex >= playGigSession.songs.length) return;
+  const [song] = playGigSession.songs.splice(index, 1);
+  playGigSession.songs.splice(nextIndex, 0, song);
+  renderPlayGig();
+}
+
+function movePlayGigSongBefore(draggedSessionId, targetSessionId) {
+  if (!playGigSession || !draggedSessionId || !targetSessionId || draggedSessionId === targetSessionId) return;
+  const fromIndex = playGigSession.songs.findIndex((song) => song.sessionId === draggedSessionId);
+  const toIndex = playGigSession.songs.findIndex((song) => song.sessionId === targetSessionId);
+  if (fromIndex < 0 || toIndex < 0) return;
+  const [song] = playGigSession.songs.splice(fromIndex, 1);
+  playGigSession.songs.splice(toIndex, 0, song);
+  renderPlayGig();
+}
+
+function exitPlayGigMode() {
+  const okay = window.confirm("Exit gig mode? This one-off gig copy will be discarded.");
+  if (!okay) return;
+  playGigSession = null;
+  els.playGigShell.classList.add("hidden");
+  els.appShell.classList.remove("hidden");
+}
+
 function renderSongDetail() {
   const song = state.songs.find((item) => item.id === selectedSongId && item.bandId === state.activeBandId);
   if (!song) {
@@ -1405,6 +1575,21 @@ function closeModal(element) {
 function openSetlistDialog() {
   els.setlistNameInput.value = "";
   openModal(els.setlistDialog);
+}
+
+function openPlayGigDialog() {
+  const setlists = setlistsForActiveBand();
+  if (!setlists.length) {
+    addNotification("No setlists yet", "Create a setlist before starting gig mode.", "system");
+    render();
+    return;
+  }
+  els.playGigSetlistSelect.innerHTML = setlists.map((setlist) => {
+    const count = setlistSongLinks(setlist.id).length;
+    return `<option value="${setlist.id}">${escapeHtml(setlist.name)} (${count} song${count === 1 ? "" : "s"})</option>`;
+  }).join("");
+  els.playGigSetlistSelect.value = selectedSetlistId || setlists[0]?.id || "";
+  openModal(els.playGigDialog);
 }
 
 function openSongDialog(songId = null) {

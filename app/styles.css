@@ -446,6 +446,14 @@ textarea:focus {
   justify-content: flex-end;
 }
 
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .icon-button,
 .primary-button,
 .secondary-button,
@@ -1067,6 +1075,177 @@ textarea:focus {
   gap: 12px;
 }
 
+.play-gig-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: #111816;
+  color: #f7faf9;
+}
+
+.play-gig-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 18px clamp(16px, 4vw, 34px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: #16211f;
+}
+
+.play-gig-header h1 {
+  margin: 0;
+  font-size: clamp(1.55rem, 3vw, 2.6rem);
+  line-height: 1.05;
+}
+
+.play-gig-main {
+  min-height: 0;
+  overflow: auto;
+  padding: clamp(12px, 3vw, 28px);
+}
+
+.play-gig-songs {
+  display: grid;
+  gap: 10px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.play-gig-empty {
+  border: 1px dashed rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  padding: 26px;
+  color: rgba(247, 250, 249, 0.7);
+  text-align: center;
+}
+
+.play-song-row {
+  display: grid;
+  grid-template-columns: 34px 46px 48px minmax(0, 1fr) 72px 46px;
+  gap: 10px;
+  align-items: center;
+  min-height: 74px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 10px;
+  background: #f7faf9;
+  color: #17201e;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.24);
+  transition: opacity 0.18s ease, filter 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+
+.play-song-row.dragging {
+  opacity: 0.55;
+}
+
+.play-song-row.drag-over {
+  box-shadow: inset 0 0 0 3px var(--gold), 0 14px 36px rgba(0, 0, 0, 0.24);
+}
+
+.play-song-row.played {
+  opacity: 0.22;
+  filter: grayscale(1);
+  background: #d9dedb;
+}
+
+.play-song-row.played .play-song-main {
+  text-decoration: line-through;
+}
+
+.play-drag-handle,
+.play-played-toggle,
+.play-remove-button,
+.play-song-move-buttons button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #43504c;
+}
+
+.play-drag-handle {
+  cursor: grab;
+}
+
+.play-drag-handle:active {
+  cursor: grabbing;
+}
+
+.play-drag-handle svg,
+.play-played-toggle svg,
+.play-remove-button svg,
+.play-song-move-buttons svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.play-played-toggle {
+  border-color: #b9c6c0;
+}
+
+.play-song-row.played .play-played-toggle {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.play-song-number {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #16211f;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.play-song-main {
+  min-width: 0;
+}
+
+.play-song-main strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(1.08rem, 2vw, 1.45rem);
+}
+
+.play-song-main small {
+  display: block;
+  margin-top: 4px;
+  color: #65716e;
+}
+
+.play-song-move-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.play-song-move-buttons button {
+  width: 34px;
+}
+
+.play-remove-button:hover {
+  background: #fff2ef;
+  color: #9b2f20;
+}
+
 .lyrics-text {
   margin: 0;
   min-height: 360px;
@@ -1361,6 +1540,51 @@ textarea:focus {
   .song-delete-button {
     width: 30px;
     height: 30px;
+  }
+
+  .play-gig-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .play-gig-header .secondary-button {
+    width: 100%;
+  }
+
+  .play-song-row {
+    grid-template-columns: 28px 34px 38px minmax(0, 1fr) 38px;
+    gap: 7px;
+    min-height: 68px;
+    padding: 8px;
+  }
+
+  .play-song-move-buttons {
+    grid-column: 4 / 5;
+    grid-row: 2;
+    width: 78px;
+  }
+
+  .play-remove-button {
+    grid-column: 5;
+    grid-row: 1 / 3;
+  }
+
+  .play-song-number {
+    width: 32px;
+    height: 32px;
+    font-size: 0.86rem;
+  }
+
+  .play-drag-handle,
+  .play-played-toggle,
+  .play-remove-button,
+  .play-song-move-buttons button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .play-song-main strong {
+    white-space: normal;
   }
 
   .year-view {
