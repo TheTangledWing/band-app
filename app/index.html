@@ -72,33 +72,37 @@
           </div>
         </div>
 
-        <section id="localUserPanel" class="panel compact-panel">
-          <label for="userSelect">Signed in as</label>
-          <select id="userSelect"></select>
-        </section>
-
-        <section id="cloudUserPanel" class="panel compact-panel hidden">
-          <label>Signed in as</label>
-          <div id="cloudUserLabel" class="cloud-user-label"></div>
-          <button id="signOutButton" class="secondary-button" type="button">Sign out</button>
-        </section>
-
-        <section class="panel compact-panel">
-          <label>Mode</label>
-          <div class="segmented-control sidebar-mode-control" role="tablist" aria-label="App mode">
-            <button id="appCloudModeButton" type="button">Cloud</button>
-            <button id="appLocalModeButton" class="active" type="button">Local</button>
+        <section class="panel workspace-admin-panel">
+          <div id="localUserPanel" class="admin-row">
+            <label for="userSelect">Signed in as</label>
+            <select id="userSelect"></select>
           </div>
-        </section>
 
-        <section class="panel">
-          <div class="panel-title">
-            <h2>Bands</h2>
-            <button id="newBandButton" class="icon-button" type="button" title="Create band" aria-label="Create band">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
-            </button>
+          <div id="cloudUserPanel" class="admin-row hidden">
+            <label>Signed in as</label>
+            <div class="cloud-user-stack">
+              <div id="cloudUserLabel" class="cloud-user-label"></div>
+              <button id="signOutButton" class="secondary-button" type="button">Sign out</button>
+            </div>
           </div>
-          <div id="bandList" class="band-list"></div>
+
+          <div class="admin-row">
+            <label>Mode</label>
+            <div class="segmented-control sidebar-mode-control" role="tablist" aria-label="App mode">
+              <button id="appCloudModeButton" type="button">Cloud</button>
+              <button id="appLocalModeButton" class="active" type="button">Local</button>
+            </div>
+          </div>
+
+          <div class="admin-row bands-admin-row">
+            <div class="panel-title">
+              <h2>Bands</h2>
+              <button id="newBandButton" class="icon-button" type="button" title="Create band" aria-label="Create band">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+              </button>
+            </div>
+            <div id="bandList" class="band-list"></div>
+          </div>
         </section>
 
         <section class="panel">
