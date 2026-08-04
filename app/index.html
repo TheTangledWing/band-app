@@ -281,6 +281,8 @@
         </div>
 
         <input id="eventId" type="hidden">
+        <input id="eventEnd" type="hidden">
+        <input id="paymentCurrency" type="hidden" value="EUR">
         <div class="form-grid">
           <label>Title<input id="eventTitle" required></label>
           <label>Type
@@ -293,7 +295,6 @@
             </select>
           </label>
           <label>Start<input id="eventStart" type="datetime-local" required></label>
-          <label>End<input id="eventEnd" type="datetime-local" required></label>
           <label>Status
             <select id="eventStatus">
               <option value="scheduled">Scheduled</option>
@@ -307,7 +308,6 @@
           </label>
           <label class="wide">New venue name<input id="newVenueName" placeholder="Leave blank to use selected venue"></label>
           <label>Payment amount<input id="paymentAmount" type="number" min="0" step="0.01" placeholder="0.00"></label>
-          <label>Currency<input id="paymentCurrency" value="EUR"></label>
           <label>Payment status
             <select id="paymentStatus">
               <option value="unknown">Unknown</option>

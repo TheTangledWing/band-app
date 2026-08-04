@@ -1372,7 +1372,7 @@ function openEventDialog(eventId = null) {
   els.eventTitle.value = event?.title || "";
   els.eventType.value = event?.type || "gig";
   els.eventStart.value = event?.startsAt || defaultStart();
-  els.eventEnd.value = event?.endsAt || defaultEnd();
+  els.eventEnd.value = event?.endsAt || defaultEndFromStart(els.eventStart.value);
   els.eventStatus.value = event?.status || "scheduled";
   els.eventLocation.value = event?.venueId || venuesForActiveBand()[0]?.id || "";
   els.newVenueName.value = "";
@@ -1427,7 +1427,7 @@ async function saveEventFromForm() {
     type: els.eventType.value,
     status: els.eventStatus.value,
     startsAt: els.eventStart.value,
-    endsAt: els.eventEnd.value,
+    endsAt: eventEndForSave(existing),
     venueId,
     paymentAmount: els.paymentAmount.value,
     paymentCurrency: els.paymentCurrency.value || "EUR",
@@ -1808,9 +1808,15 @@ function defaultStart() {
   return toDatetimeLocal(date);
 }
 
-function defaultEnd() {
-  const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), new Date().getDate(), 23, 0);
+function defaultEndFromStart(value) {
+  const date = parseLocalDate(value);
+  date.setHours(date.getHours() + 3);
   return toDatetimeLocal(date);
+}
+
+function eventEndForSave(existing) {
+  if (existing?.startsAt === els.eventStart.value && existing.endsAt) return existing.endsAt;
+  return defaultEndFromStart(els.eventStart.value);
 }
 
 function toDatetimeLocal(date) {
