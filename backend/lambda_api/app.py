@@ -86,6 +86,14 @@ class SongPatch(BaseModel):
     lyrics: str | None = Field(default=None, max_length=20000)
 
 
+class SetlistSongPlayedPatch(BaseModel):
+    played: bool = False
+
+
+class SetlistSongReorder(BaseModel):
+    song_ids: list[str] = Field(min_length=0, max_length=300)
+
+
 class JoinLinkCreate(BaseModel):
     default_role: str = Field(default="member", pattern="^(manager|member|guest)$")
 
@@ -368,6 +376,19 @@ def find_setlist(band_id: str, setlist_id: str) -> dict[str, Any]:
     return item
 
 
+def setlist_song_links(band_id: str, setlist_id: str) -> list[dict[str, Any]]:
+    return table.query(
+        KeyConditionExpression=Key("PK").eq(f"BAND#{band_id}") & Key("SK").begins_with(f"SETLISTSONG#{setlist_id}#")
+    ).get("Items", [])
+
+
+def find_setlist_song_link(band_id: str, setlist_id: str, song_id: str) -> dict[str, Any]:
+    for item in setlist_song_links(band_id, setlist_id):
+        if item.get("song_id") == song_id:
+            return item
+    raise HTTPException(status_code=404, detail="Song is not in this setlist")
+
+
 @app.patch("/bands/{band_id}/events/{event_id}")
 def update_event(band_id: str, event_id: str, body: EventPatch, user: dict[str, str] = Depends(current_user)):
     require_member(band_id, user)
@@ -487,6 +508,82 @@ def update_song(band_id: str, song_id: str, body: SongPatch, user: dict[str, str
     item["updated_at"] = now_iso()
     table.put_item(Item=item)
     return response_item(item)
+
+
+@app.post("/bands/{band_id}/setlists/{setlist_id}/songs/{song_id}/played")
+def mark_setlist_song_played(
+    band_id: str,
+    setlist_id: str,
+    song_id: str,
+    body: SetlistSongPlayedPatch,
+    user: dict[str, str] = Depends(current_user),
+):
+    require_member(band_id, user)
+    find_setlist(band_id, setlist_id)
+    find_song(band_id, song_id)
+    item = find_setlist_song_link(band_id, setlist_id, song_id)
+    item["played_at"] = now_iso() if body.played else ""
+    item["updated_by_user_id"] = user["user_id"]
+    item["updated_at"] = now_iso()
+    table.put_item(Item=item)
+    return response_item(item)
+
+
+@app.post("/bands/{band_id}/setlists/{setlist_id}/songs/{song_id}/remove")
+def remove_setlist_song(
+    band_id: str,
+    setlist_id: str,
+    song_id: str,
+    user: dict[str, str] = Depends(current_user),
+):
+    require_member(band_id, user)
+    find_setlist(band_id, setlist_id)
+    item = find_setlist_song_link(band_id, setlist_id, song_id)
+    table.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
+    remaining = sorted(
+        [link for link in setlist_song_links(band_id, setlist_id) if link.get("song_id") != song_id],
+        key=lambda link: link.get("order", 0),
+    )
+    write_setlist_song_order(band_id, setlist_id, [link["song_id"] for link in remaining], user["user_id"], remaining)
+    return {"removed": True, "setlist_id": setlist_id, "song_id": song_id}
+
+
+@app.post("/bands/{band_id}/setlists/{setlist_id}/songs/reorder")
+def reorder_setlist_songs(
+    band_id: str,
+    setlist_id: str,
+    body: SetlistSongReorder,
+    user: dict[str, str] = Depends(current_user),
+):
+    require_member(band_id, user)
+    find_setlist(band_id, setlist_id)
+    existing = setlist_song_links(band_id, setlist_id)
+    existing_song_ids = {link["song_id"] for link in existing}
+    if set(body.song_ids) != existing_song_ids or len(body.song_ids) != len(existing_song_ids):
+        raise HTTPException(status_code=400, detail="Song order must include every song in the setlist once")
+    write_setlist_song_order(band_id, setlist_id, body.song_ids, user["user_id"], existing)
+    return {"setlist_id": setlist_id, "song_ids": body.song_ids}
+
+
+def write_setlist_song_order(
+    band_id: str,
+    setlist_id: str,
+    song_ids: list[str],
+    user_id: str,
+    existing_links: list[dict[str, Any]],
+) -> None:
+    existing_by_song_id = {link["song_id"]: link for link in existing_links}
+    timestamp = now_iso()
+    with table.batch_writer() as batch:
+        for index, song_id in enumerate(song_ids, start=1):
+            previous = existing_by_song_id[song_id]
+            item = {
+                **previous,
+                "order": index,
+                "updated_by_user_id": user_id,
+                "updated_at": timestamp,
+            }
+            batch.put_item(Item=item)
 
 
 @app.post("/bands/{band_id}/events/{event_id}/cancel")

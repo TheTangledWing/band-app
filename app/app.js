@@ -884,7 +884,8 @@ function toLocalSetlistSong(link) {
   return {
     setlistId: link.setlist_id,
     songId: link.song_id,
-    order: Number(link.order || 0)
+    order: Number(link.order || 0),
+    playedAt: link.played_at || ""
   };
 }
 
@@ -1200,28 +1201,72 @@ function renderSetlists() {
 }
 
 function renderSetlistSongs() {
-  const songs = songsForSelectedSetlist();
+  const links = setlistSongLinks(selectedSetlistId);
   if (!selectedSetlistId) {
     els.setlistSongs.innerHTML = `<p class="detail-empty">Create or select a setlist.</p>`;
     return;
   }
-  if (!songs.length) {
+  if (!links.length) {
     els.setlistSongs.innerHTML = `<p class="detail-empty">No songs in this setlist yet.</p>`;
     return;
   }
-  els.setlistSongs.innerHTML = songs.map((song, index) => `
-    <button class="song-row ${song.id === selectedSongId ? "active" : ""}" type="button" data-song-id="${song.id}">
+  els.setlistSongs.innerHTML = links.map((link, index) => {
+    const song = state.songs.find((item) => item.id === link.songId);
+    if (!song) return "";
+    return `<div class="song-row ${song.id === selectedSongId ? "active" : ""} ${link.playedAt ? "played" : ""}" draggable="true" data-song-id="${song.id}">
+      <button class="drag-handle" type="button" title="Drag to reorder" aria-label="Drag to reorder">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"></path></svg>
+      </button>
       <span class="song-number">${index + 1}</span>
-      <span>
+      <button class="played-toggle" type="button" data-played-song-id="${song.id}" title="${link.playedAt ? "Mark not played" : "Mark played"}" aria-label="${link.playedAt ? "Mark not played" : "Mark played"}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>
+      </button>
+      <button class="song-row-main" type="button" data-song-id="${song.id}">
         <strong>${escapeHtml(song.title)}</strong>
         <small>${escapeHtml([song.key, song.tempo].filter(Boolean).join(" · ") || "No key/tempo")}</small>
-      </span>
-    </button>
-  `).join("");
-  els.setlistSongs.querySelectorAll("[data-song-id]").forEach((button) => {
+      </button>
+      <button class="song-delete-button" type="button" data-delete-song-id="${song.id}" title="Remove from setlist" aria-label="Remove from setlist">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m10 11 .5 7"></path><path d="m14 11-.5 7"></path><path d="M6 6l1 14h10l1-14"></path></svg>
+      </button>
+    </div>`;
+  }).join("");
+
+  els.setlistSongs.querySelectorAll(".song-row-main").forEach((button) => {
     button.addEventListener("click", () => {
       selectedSongId = button.dataset.songId;
       renderSetlists();
+    });
+  });
+
+  els.setlistSongs.querySelectorAll("[data-played-song-id]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await toggleSetlistSongPlayed(button.dataset.playedSongId);
+    });
+  });
+
+  els.setlistSongs.querySelectorAll("[data-delete-song-id]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await removeSongFromSetlist(button.dataset.deleteSongId);
+    });
+  });
+
+  els.setlistSongs.querySelectorAll(".song-row").forEach((row) => {
+    row.addEventListener("dragstart", (event) => {
+      row.classList.add("dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", row.dataset.songId);
+    });
+    row.addEventListener("dragend", () => row.classList.remove("dragging"));
+    row.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      row.classList.add("drag-over");
+    });
+    row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
+    row.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      row.classList.remove("drag-over");
+      const draggedSongId = event.dataTransfer.getData("text/plain");
+      await moveSetlistSong(draggedSongId, row.dataset.songId);
     });
   });
 }
@@ -1610,6 +1655,84 @@ async function saveSongFromForm() {
   saveAndRender();
 }
 
+async function removeSongFromSetlist(songId) {
+  if (!selectedSetlistId || !songId) return;
+  const song = state.songs.find((item) => item.id === songId);
+  const okay = window.confirm(`Remove ${song?.title || "this song"} from this setlist?`);
+  if (!okay) return;
+
+  if (isCloudMode()) {
+    const active = activeBand();
+    if (!active) return;
+    await apiRequest(`/bands/${active.id}/setlists/${selectedSetlistId}/songs/${songId}/remove`, {
+      method: "POST",
+      body: "{}"
+    });
+    await loadCloudSetlistsForActiveBand();
+    addNotification("Song removed", `${song?.title || "Song"} removed from the setlist.`, "system");
+    render();
+    return;
+  }
+
+  state.setlistSongs = state.setlistSongs.filter((link) => !(link.setlistId === selectedSetlistId && link.songId === songId));
+  normalizeSetlistSongOrder(selectedSetlistId);
+  if (selectedSongId === songId) {
+    selectedSongId = songsForSelectedSetlist()[0]?.id || null;
+  }
+  addNotification("Song removed", `${song?.title || "Song"} removed from the setlist.`, "system");
+  saveAndRender();
+}
+
+async function toggleSetlistSongPlayed(songId) {
+  const link = setlistSongLink(selectedSetlistId, songId);
+  if (!link) return;
+  const played = !link.playedAt;
+
+  if (isCloudMode()) {
+    const active = activeBand();
+    if (!active) return;
+    await apiRequest(`/bands/${active.id}/setlists/${selectedSetlistId}/songs/${songId}/played`, {
+      method: "POST",
+      body: JSON.stringify({ played })
+    });
+    await loadCloudSetlistsForActiveBand();
+    render();
+    return;
+  }
+
+  link.playedAt = played ? new Date().toISOString() : "";
+  saveAndRender();
+}
+
+async function moveSetlistSong(draggedSongId, targetSongId) {
+  if (!selectedSetlistId || !draggedSongId || !targetSongId || draggedSongId === targetSongId) return;
+  const links = setlistSongLinks(selectedSetlistId);
+  const fromIndex = links.findIndex((link) => link.songId === draggedSongId);
+  const toIndex = links.findIndex((link) => link.songId === targetSongId);
+  if (fromIndex < 0 || toIndex < 0) return;
+
+  const [moved] = links.splice(fromIndex, 1);
+  links.splice(toIndex, 0, moved);
+  const orderedSongIds = links.map((link) => link.songId);
+
+  if (isCloudMode()) {
+    const active = activeBand();
+    if (!active) return;
+    await apiRequest(`/bands/${active.id}/setlists/${selectedSetlistId}/songs/reorder`, {
+      method: "POST",
+      body: JSON.stringify({ song_ids: orderedSongIds })
+    });
+    await loadCloudSetlistsForActiveBand();
+    selectedSongId = draggedSongId;
+    render();
+    return;
+  }
+
+  applySetlistSongOrder(selectedSetlistId, orderedSongIds);
+  selectedSongId = draggedSongId;
+  saveAndRender();
+}
+
 function savePosterFromForm() {
   const existing = state.posters.find((poster) => poster.id === els.posterId.value);
   const payload = {
@@ -1703,6 +1826,21 @@ function setlistSongLinks(setlistId) {
   return state.setlistSongs
     .filter((link) => link.setlistId === setlistId)
     .sort((a, b) => a.order - b.order);
+}
+
+function setlistSongLink(setlistId, songId) {
+  return state.setlistSongs.find((link) => link.setlistId === setlistId && link.songId === songId);
+}
+
+function applySetlistSongOrder(setlistId, songIds) {
+  songIds.forEach((songId, index) => {
+    const link = setlistSongLink(setlistId, songId);
+    if (link) link.order = index + 1;
+  });
+}
+
+function normalizeSetlistSongOrder(setlistId) {
+  applySetlistSongOrder(setlistId, setlistSongLinks(setlistId).map((link) => link.songId));
 }
 
 function songsForSelectedSetlist() {
