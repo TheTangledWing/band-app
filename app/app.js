@@ -4,6 +4,7 @@ const MODE_KEY = "bandmanager-mode-v1";
 const AUTH_KEY = "bandmanager-auth-v1";
 const ADMIN_PANEL_KEY = "bandmanager-admin-panel-v2";
 const DEFAULT_BAND_KEY = "bandmanager-default-band-v1";
+const PLAY_GIG_SESSION_KEY = "bandmanager-play-gig-session-v1";
 
 const cloudConfig = {
   region: "eu-west-1",
@@ -70,7 +71,7 @@ function bindElements() {
     "dayView", "monthView", "yearView", "eventDetail", "editSelectedEventButton", "notificationLog", "clearNotificationsButton",
     "calendarSection", "setlistsSection", "setlistSummary", "playGigButton", "newSongButton", "setlistList", "selectedSetlistName",
     "addSongToSetlistButton", "setlistSongs", "editSongButton", "songDetail",
-    "playGigShell", "playGigTitle", "playGigProgress", "playGigSongs", "exitPlayGigButton",
+    "playGigShell", "playGigTitle", "playGigProgress", "playGigSongs", "exitPlayGigButton", "endPlayGigButton",
     "postersSection", "posterSummary", "posterBoard", "editPosterButton", "posterDetail",
     "eventDialog", "eventForm", "eventDialogTitle", "eventId", "eventTitle", "eventType", "eventStart",
     "eventEnd", "eventStatus", "eventLocation", "newVenueName", "paymentAmount", "paymentCurrency",
@@ -233,6 +234,7 @@ function bindActions() {
   els.newPosterButton.addEventListener("click", () => openPosterDialog());
   els.playGigButton.addEventListener("click", () => openPlayGigDialog());
   els.exitPlayGigButton.addEventListener("click", () => exitPlayGigMode());
+  els.endPlayGigButton.addEventListener("click", () => endPlayGigMode());
   els.newSongButton.addEventListener("click", () => openSongDialog());
   els.addSongToSetlistButton.addEventListener("click", () => openAddSongToSetlistDialog());
   els.editSongButton.addEventListener("click", () => {
@@ -1214,6 +1216,7 @@ function renderSetlists() {
   const setlists = setlistsForActiveBand();
   const songs = songsForActiveBand();
   els.setlistSummary.textContent = `${setlists.length} setlist${setlists.length === 1 ? "" : "s"} · ${songs.length} song${songs.length === 1 ? "" : "s"}`;
+  renderPlayGigButton();
 
   if (!setlists.length) {
     els.setlistList.innerHTML = `<p class="detail-empty">No setlists yet.</p>`;
@@ -1250,6 +1253,12 @@ function renderSetlists() {
   els.selectedSetlistName.textContent = selectedSetlist ? selectedSetlist.name : "Songs";
   renderSetlistSongs();
   renderSongDetail();
+}
+
+function renderPlayGigButton() {
+  const savedSession = loadPlayGigSessionForActiveBand();
+  const label = savedSession ? "Resume gig" : "Play gig";
+  els.playGigButton.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"></path></svg>${label}`;
 }
 
 function renderSetlistSongs() {
@@ -1349,14 +1358,26 @@ function startPlayGigMode(setlistId) {
   }
 
   playGigSession = {
+    bandId: state.activeBandId,
     setlistId,
     setlistName: setlist.name,
     startedAt: new Date().toISOString(),
     songs
   };
+  savePlayGigSession();
   els.appShell.classList.add("hidden");
   els.playGigShell.classList.remove("hidden");
   renderPlayGig();
+}
+
+function resumePlayGigMode() {
+  const savedSession = loadPlayGigSessionForActiveBand();
+  if (!savedSession) return false;
+  playGigSession = savedSession;
+  els.appShell.classList.add("hidden");
+  els.playGigShell.classList.remove("hidden");
+  renderPlayGig();
+  return true;
 }
 
 function renderPlayGig() {
@@ -1364,11 +1385,15 @@ function renderPlayGig() {
     els.playGigShell.classList.add("hidden");
     return;
   }
+  if (playGigSession.bandId !== state.activeBandId && els.playGigShell.classList.contains("hidden")) {
+    playGigSession = null;
+    return;
+  }
 
   const playedCount = playGigSession.songs.filter((song) => song.played).length;
   const total = playGigSession.songs.length;
   els.playGigTitle.textContent = playGigSession.setlistName;
-  els.playGigProgress.textContent = `${playedCount} of ${total} played · one-off gig copy`;
+  els.playGigProgress.textContent = `${playedCount} of ${total} played · saved until you end the gig`;
 
   if (!total) {
     els.playGigSongs.innerHTML = `<div class="play-gig-empty">No songs left in this gig copy.</div>`;
@@ -1442,12 +1467,14 @@ function togglePlayGigSong(sessionId) {
   const song = playGigSession?.songs.find((item) => item.sessionId === sessionId);
   if (!song) return;
   song.played = !song.played;
+  savePlayGigSession();
   renderPlayGig();
 }
 
 function removePlayGigSong(sessionId) {
   if (!playGigSession) return;
   playGigSession.songs = playGigSession.songs.filter((song) => song.sessionId !== sessionId);
+  savePlayGigSession();
   renderPlayGig();
 }
 
@@ -1458,6 +1485,7 @@ function movePlayGigSong(sessionId, direction) {
   if (index < 0 || nextIndex < 0 || nextIndex >= playGigSession.songs.length) return;
   const [song] = playGigSession.songs.splice(index, 1);
   playGigSession.songs.splice(nextIndex, 0, song);
+  savePlayGigSession();
   renderPlayGig();
 }
 
@@ -1468,15 +1496,26 @@ function movePlayGigSongBefore(draggedSessionId, targetSessionId) {
   if (fromIndex < 0 || toIndex < 0) return;
   const [song] = playGigSession.songs.splice(fromIndex, 1);
   playGigSession.songs.splice(toIndex, 0, song);
+  savePlayGigSession();
   renderPlayGig();
 }
 
 function exitPlayGigMode() {
-  const okay = window.confirm("Exit gig mode? This one-off gig copy will be discarded.");
+  if (!playGigSession) return;
+  savePlayGigSession();
+  els.playGigShell.classList.add("hidden");
+  els.appShell.classList.remove("hidden");
+  render();
+}
+
+function endPlayGigMode() {
+  const okay = window.confirm("End gig mode? This one-off gig copy will be discarded.");
   if (!okay) return;
+  clearPlayGigSession();
   playGigSession = null;
   els.playGigShell.classList.add("hidden");
   els.appShell.classList.remove("hidden");
+  render();
 }
 
 function renderSongDetail() {
@@ -1578,6 +1617,7 @@ function openSetlistDialog() {
 }
 
 function openPlayGigDialog() {
+  if (resumePlayGigMode()) return;
   const setlists = setlistsForActiveBand();
   if (!setlists.length) {
     addNotification("No setlists yet", "Create a setlist before starting gig mode.", "system");
@@ -2077,6 +2117,37 @@ function loadDefaultBandPreferences() {
   } catch {
     return {};
   }
+}
+
+function playGigSessionKey() {
+  return `${runtimeMode}:${state.activeUserId || "local"}:${state.activeBandId || "no-band"}`;
+}
+
+function loadPlayGigSessions() {
+  try {
+    return JSON.parse(localStorage.getItem(PLAY_GIG_SESSION_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function loadPlayGigSessionForActiveBand() {
+  const session = loadPlayGigSessions()[playGigSessionKey()];
+  if (!session || session.bandId !== state.activeBandId || !Array.isArray(session.songs)) return null;
+  return session;
+}
+
+function savePlayGigSession() {
+  if (!playGigSession) return;
+  const sessions = loadPlayGigSessions();
+  sessions[playGigSessionKey()] = playGigSession;
+  localStorage.setItem(PLAY_GIG_SESSION_KEY, JSON.stringify(sessions));
+}
+
+function clearPlayGigSession() {
+  const sessions = loadPlayGigSessions();
+  delete sessions[playGigSessionKey()];
+  localStorage.setItem(PLAY_GIG_SESSION_KEY, JSON.stringify(sessions));
 }
 
 function eventsForActiveBand() {

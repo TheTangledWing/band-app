@@ -1101,6 +1101,13 @@ textarea:focus {
   line-height: 1.05;
 }
 
+.play-gig-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .play-gig-main {
   min-height: 0;
   overflow: auto;
@@ -1547,7 +1554,13 @@ textarea:focus {
     flex-direction: column;
   }
 
-  .play-gig-header .secondary-button {
+  .play-gig-header-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .play-gig-header .secondary-button,
+  .play-gig-header .danger-button {
     width: 100%;
   }
 
