@@ -73,6 +73,7 @@ class SongCreate(BaseModel):
     title: str = Field(min_length=1, max_length=160)
     key: str | None = Field(default=None, max_length=40)
     tempo: str | None = Field(default=None, max_length=40)
+    lead_vocal: str | None = Field(default=None, max_length=80)
     attachment_name: str | None = Field(default=None, max_length=240)
     lyrics: str | None = Field(default=None, max_length=20000)
     setlist_id: str | None = Field(default=None, max_length=80)
@@ -88,6 +89,10 @@ class SongPatch(BaseModel):
 
 class SetlistSongPlayedPatch(BaseModel):
     played: bool = False
+
+
+class SetlistSongLeadVocalPatch(BaseModel):
+    lead_vocal: str | None = Field(default=None, max_length=80)
 
 
 class SetlistSongReorder(BaseModel):
@@ -501,6 +506,7 @@ def create_song(band_id: str, body: SongCreate, user: dict[str, str] = Depends(c
             "setlist_id": body.setlist_id,
             "song_id": song_id,
             "order": order,
+            "lead_vocal": body.lead_vocal or "",
             "created_by_user_id": user["user_id"],
             "created_at": created_at,
         }
@@ -516,6 +522,25 @@ def update_song(band_id: str, song_id: str, body: SongPatch, user: dict[str, str
     updates = body.model_dump(exclude_unset=True)
     for key, value in updates.items():
         item[key] = value if value is not None else ""
+    item["updated_by_user_id"] = user["user_id"]
+    item["updated_at"] = now_iso()
+    table.put_item(Item=item)
+    return response_item(item)
+
+
+@app.patch("/bands/{band_id}/setlists/{setlist_id}/songs/{song_id}")
+def update_setlist_song(
+    band_id: str,
+    setlist_id: str,
+    song_id: str,
+    body: SetlistSongLeadVocalPatch,
+    user: dict[str, str] = Depends(current_user),
+):
+    require_member(band_id, user)
+    find_setlist(band_id, setlist_id)
+    find_song(band_id, song_id)
+    item = find_setlist_song_link(band_id, setlist_id, song_id)
+    item["lead_vocal"] = (body.lead_vocal or "").strip()
     item["updated_by_user_id"] = user["user_id"]
     item["updated_at"] = now_iso()
     table.put_item(Item=item)

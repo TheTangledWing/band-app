@@ -27,6 +27,22 @@ const eventTypes = {
   other: "Other"
 };
 
+const singerPalette = [
+  { bg: "#e6f4ff", border: "#6aaed8", text: "#15394f" },
+  { bg: "#fff0d8", border: "#d89a37", text: "#57370d" },
+  { bg: "#ecf8e9", border: "#75b66b", text: "#214b1d" },
+  { bg: "#f8e9ef", border: "#c56e90", text: "#562337" },
+  { bg: "#eeeafb", border: "#8a74d6", text: "#30265d" },
+  { bg: "#e8f5f1", border: "#2f8d77", text: "#163f36" }
+];
+
+const singerAliases = {
+  alan: 0,
+  conor: 1,
+  instrumental: 2,
+  "trad set": 3
+};
+
 let state = loadState();
 let runtimeMode = localStorage.getItem(MODE_KEY) || (location.hostname.includes("amplifyapp.com") ? "cloud" : "local");
 let authState = loadAuthState();
@@ -80,7 +96,7 @@ function bindElements() {
     "bandNameInput", "closeBandDialogButton", "dismissBandDialogButton", "setlistDialog", "setlistForm",
     "setlistNameInput", "closeSetlistDialogButton", "dismissSetlistDialogButton", "playGigDialog", "playGigForm",
     "playGigSetlistSelect", "closePlayGigDialogButton", "dismissPlayGigDialogButton", "songDialog", "songForm",
-    "songDialogTitle", "songId", "songTitle", "songKey", "songTempo", "songAttachmentName", "songLyrics",
+    "songDialogTitle", "songId", "songTitle", "songKey", "songSinger", "songTempo", "songAttachmentName", "songLyrics",
     "closeSongDialogButton", "dismissSongDialogButton", "posterDialog", "posterForm", "posterDialogTitle",
     "posterId", "posterTitle", "posterStatus", "posterEvent", "posterOwner", "posterFile", "posterFileName",
     "posterNotes", "closePosterDialogButton", "dismissPosterDialogButton"
@@ -904,6 +920,7 @@ function toLocalSetlistSong(link) {
     setlistId: link.setlist_id,
     songId: link.song_id,
     order: Number(link.order || 0),
+    leadVocal: link.lead_vocal || "",
     playedAt: link.played_at || ""
   };
 }
@@ -1274,7 +1291,10 @@ function renderSetlistSongs() {
   els.setlistSongs.innerHTML = links.map((link, index) => {
     const song = state.songs.find((item) => item.id === link.songId);
     if (!song) return "";
-    return `<div class="song-row ${song.id === selectedSongId ? "active" : ""} ${link.playedAt ? "played" : ""}" draggable="true" data-song-id="${song.id}">
+    const leadVocal = leadVocalForSetlistSong(link, song);
+    const details = songDetails(song, leadVocal);
+    const singerStyle = singerStyleAttr(leadVocal);
+    return `<div class="song-row ${song.id === selectedSongId ? "active" : ""} ${link.playedAt ? "played" : ""} ${leadVocal ? "has-singer" : ""}" ${singerStyle} draggable="true" data-song-id="${song.id}">
       <button class="drag-handle" type="button" title="Drag to reorder" aria-label="Drag to reorder">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"></path></svg>
       </button>
@@ -1283,8 +1303,11 @@ function renderSetlistSongs() {
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>
       </button>
       <button class="song-row-main" type="button" data-song-id="${song.id}">
-        <strong>${escapeHtml(song.title)}</strong>
-        <small>${escapeHtml([song.key, song.tempo].filter(Boolean).join(" · ") || "No key/tempo")}</small>
+        <span class="song-title-line">
+          <strong>${escapeHtml(song.title)}</strong>
+          ${leadVocal ? `<span class="singer-pill">${escapeHtml(leadVocal)}</span>` : ""}
+        </span>
+        <small>${escapeHtml(details || "No key/detail")}</small>
       </button>
       <button class="song-delete-button" type="button" data-delete-song-id="${song.id}" title="Remove from setlist" aria-label="Remove from setlist">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m10 11 .5 7"></path><path d="m14 11-.5 7"></path><path d="M6 6l1 14h10l1-14"></path></svg>
@@ -1340,12 +1363,14 @@ function startPlayGigMode(setlistId) {
     .map((link) => {
       const song = state.songs.find((item) => item.id === link.songId);
       if (!song) return null;
+      const leadVocal = leadVocalForSetlistSong(link, song);
       return {
         sessionId: createId("gig-song"),
         songId: song.id,
         title: song.title,
         key: song.key || "",
         tempo: song.tempo || "",
+        leadVocal,
         played: false
       };
     })
@@ -1400,8 +1425,11 @@ function renderPlayGig() {
     return;
   }
 
-  els.playGigSongs.innerHTML = playGigSession.songs.map((song, index) => `
-    <div class="play-song-row ${song.played ? "played" : ""}" draggable="true" data-session-song-id="${song.sessionId}">
+  els.playGigSongs.innerHTML = playGigSession.songs.map((song, index) => {
+    const details = songDetails(song, song.leadVocal || "");
+    const singerStyle = singerStyleAttr(song.leadVocal || "");
+    return `
+    <div class="play-song-row ${song.played ? "played" : ""} ${song.leadVocal ? "has-singer" : ""}" ${singerStyle} draggable="true" data-session-song-id="${song.sessionId}">
       <button class="play-drag-handle" type="button" title="Drag to reorder" aria-label="Drag to reorder">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"></path></svg>
       </button>
@@ -1410,8 +1438,11 @@ function renderPlayGig() {
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>
       </button>
       <div class="play-song-main">
-        <strong>${escapeHtml(song.title)}</strong>
-        <small>${escapeHtml([song.key, song.tempo].filter(Boolean).join(" · ") || "No key/tempo")}</small>
+        <span class="song-title-line">
+          <strong>${escapeHtml(song.title)}</strong>
+          ${song.leadVocal ? `<span class="singer-pill">${escapeHtml(song.leadVocal)}</span>` : ""}
+        </span>
+        <small>${escapeHtml(details || "No key/detail")}</small>
       </div>
       <div class="play-song-move-buttons" aria-label="Move ${escapeAttr(song.title)}">
         <button type="button" data-move-session-id="${song.sessionId}" data-move-direction="-1" title="Move up" aria-label="Move up">
@@ -1425,7 +1456,8 @@ function renderPlayGig() {
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m10 11 .5 7"></path><path d="m14 11-.5 7"></path><path d="M6 6l1 14h10l1-14"></path></svg>
       </button>
     </div>
-  `).join("");
+  `;
+  }).join("");
 
   bindPlayGigRows();
 }
@@ -1526,12 +1558,15 @@ function renderSongDetail() {
     return;
   }
   els.editSongButton.disabled = false;
+  const link = setlistSongLink(selectedSetlistId, song.id);
+  const leadVocal = leadVocalForSetlistSong(link, song);
   els.songDetail.innerHTML = `
     <div>
       <h3 class="detail-title">${escapeHtml(song.title)}</h3>
       <div class="tag-row">
         ${song.key ? `<span class="tag">${escapeHtml(song.key)}</span>` : ""}
-        ${song.tempo ? `<span class="tag status">${escapeHtml(song.tempo)}</span>` : ""}
+        ${leadVocal ? `<span class="tag singer-tag" ${singerStyleAttr(leadVocal)}>${escapeHtml(leadVocal)}</span>` : ""}
+        ${songDetailText(song, leadVocal) ? `<span class="tag status">${escapeHtml(songDetailText(song, leadVocal))}</span>` : ""}
       </div>
     </div>
     ${song.attachmentName ? `<div class="attachment-pill">${escapeHtml(song.attachmentName)}</div>` : ""}
@@ -1634,11 +1669,14 @@ function openPlayGigDialog() {
 
 function openSongDialog(songId = null) {
   const song = songId ? state.songs.find((item) => item.id === songId) : null;
+  const link = song ? setlistSongLink(selectedSetlistId, song.id) : null;
+  const leadVocal = song ? leadVocalForSetlistSong(link, song) : "";
   els.songDialogTitle.textContent = song ? "Edit song" : "Add song";
   els.songId.value = song?.id || "";
   els.songTitle.value = song?.title || "";
   els.songKey.value = song?.key || "";
-  els.songTempo.value = song?.tempo || "";
+  els.songSinger.value = leadVocal;
+  els.songTempo.value = song ? songDetailText(song, leadVocal) : "";
   els.songAttachmentName.value = song?.attachmentName || "";
   els.songLyrics.value = song?.lyrics || "";
   openModal(els.songDialog);
@@ -1899,6 +1937,7 @@ async function deleteSetlist(setlistId) {
 
 async function saveSongFromForm() {
   const existing = state.songs.find((song) => song.id === els.songId.value);
+  const leadVocal = els.songSinger.value.trim();
   const payload = {
     id: existing?.id || createId("s"),
     bandId: state.activeBandId,
@@ -1917,6 +1956,7 @@ async function saveSongFromForm() {
       title: payload.title,
       key: payload.key,
       tempo: payload.tempo,
+      lead_vocal: leadVocal,
       attachment_name: payload.attachmentName,
       lyrics: payload.lyrics,
       setlist_id: existing ? undefined : selectedSetlistId
@@ -1924,6 +1964,12 @@ async function saveSongFromForm() {
     const saved = existing
       ? await apiRequest(`/bands/${active.id}/songs/${existing.id}`, { method: "PATCH", body })
       : await apiRequest(`/bands/${active.id}/songs`, { method: "POST", body });
+    if (existing && selectedSetlistId) {
+      await apiRequest(`/bands/${active.id}/setlists/${selectedSetlistId}/songs/${existing.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ lead_vocal: leadVocal })
+      });
+    }
     await loadCloudSetlistsForActiveBand();
     selectedSongId = saved.song_id;
     addNotification(existing ? "Song updated" : "Song added", `${payload.title} saved in ${active.name}.`, "system");
@@ -1934,12 +1980,14 @@ async function saveSongFromForm() {
 
   if (existing) {
     state.songs = state.songs.map((song) => song.id === existing.id ? payload : song);
+    const link = setlistSongLink(selectedSetlistId, existing.id);
+    if (link) link.leadVocal = leadVocal;
     addNotification("Song updated", `${payload.title} lyrics updated.`, "system");
   } else {
     state.songs.push(payload);
     if (selectedSetlistId) {
       const nextOrder = setlistSongLinks(selectedSetlistId).length + 1;
-      state.setlistSongs.push({ setlistId: selectedSetlistId, songId: payload.id, order: nextOrder });
+      state.setlistSongs.push({ setlistId: selectedSetlistId, songId: payload.id, order: nextOrder, leadVocal });
     }
     addNotification("Song added", `${payload.title} added to ${activeBand().name}.`, "system");
   }
@@ -2174,6 +2222,52 @@ function setlistSongLinks(setlistId) {
 
 function setlistSongLink(setlistId, songId) {
   return state.setlistSongs.find((link) => link.setlistId === setlistId && link.songId === songId);
+}
+
+function leadVocalForSetlistSong(link, song = null) {
+  const savedSinger = link?.leadVocal || "";
+  if (savedSinger) return savedSinger;
+  return inferLeadVocalFromSong(song);
+}
+
+function inferLeadVocalFromSong(song) {
+  const detail = String(song?.tempo || "").trim();
+  if (!detail) return "";
+  return isSingerLikeDetail(detail) ? detail : "";
+}
+
+function isSingerLikeDetail(value) {
+  const normalized = normalizeSinger(value);
+  return Boolean(singerAliases[normalized] !== undefined || ["alan", "conor", "instrumental", "trad set"].includes(normalized));
+}
+
+function songDetailText(song, leadVocal = "") {
+  const detail = String(song?.tempo || "").trim();
+  return detail && normalizeSinger(detail) !== normalizeSinger(leadVocal) ? detail : "";
+}
+
+function songDetails(song, leadVocal = "") {
+  return [song?.key || "", songDetailText(song, leadVocal), leadVocal].filter(Boolean).join(" · ");
+}
+
+function normalizeSinger(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function singerPaletteFor(value) {
+  const normalized = normalizeSinger(value);
+  if (!normalized) return null;
+  const aliasIndex = singerAliases[normalized];
+  if (aliasIndex !== undefined) return singerPalette[aliasIndex % singerPalette.length];
+  let hash = 0;
+  for (const char of normalized) hash = (hash + char.charCodeAt(0)) % singerPalette.length;
+  return singerPalette[hash];
+}
+
+function singerStyleAttr(value) {
+  const palette = singerPaletteFor(value);
+  if (!palette) return "";
+  return `style="--singer-bg:${palette.bg};--singer-border:${palette.border};--singer-text:${palette.text};"`;
 }
 
 function applySetlistSongOrder(setlistId, songIds) {
