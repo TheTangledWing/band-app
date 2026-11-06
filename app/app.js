@@ -56,6 +56,8 @@ let selectedSetlistId = null;
 let selectedSongId = null;
 let selectedPosterId = null;
 let playGigSession = null;
+let setlistDialogMode = "create";
+let setlistDialogSourceId = null;
 
 const els = {};
 
@@ -93,8 +95,8 @@ function bindElements() {
     "eventEnd", "eventStatus", "eventLocation", "newVenueName", "paymentAmount", "paymentCurrency",
     "paymentStatus", "paymentNotes", "eventNotes", "eventAttachments", "existingAttachments",
     "cancelEventButton", "closeEventDialogButton", "dismissEventDialogButton", "bandDialog", "bandForm",
-    "bandNameInput", "closeBandDialogButton", "dismissBandDialogButton", "setlistDialog", "setlistForm",
-    "setlistNameInput", "closeSetlistDialogButton", "dismissSetlistDialogButton", "playGigDialog", "playGigForm",
+    "bandNameInput", "closeBandDialogButton", "dismissBandDialogButton", "setlistDialog", "setlistForm", "setlistDialogTitle",
+    "setlistNameInput", "setlistSubmitButton", "closeSetlistDialogButton", "dismissSetlistDialogButton", "playGigDialog", "playGigForm",
     "playGigSetlistSelect", "closePlayGigDialogButton", "dismissPlayGigDialogButton", "songDialog", "songForm",
     "songDialogTitle", "songId", "songTitle", "songKey", "songSinger", "songTempo", "songAttachmentName", "songLyrics",
     "closeSongDialogButton", "dismissSongDialogButton", "posterDialog", "posterForm", "posterDialogTitle",
@@ -281,7 +283,14 @@ function bindActions() {
   els.dismissSetlistDialogButton.addEventListener("click", () => closeModal(els.setlistDialog));
   els.setlistForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    await createSetlist(els.setlistNameInput.value.trim());
+    const name = els.setlistNameInput.value.trim();
+    if (setlistDialogMode === "rename") {
+      await renameSetlist(setlistDialogSourceId, name);
+    } else if (setlistDialogMode === "duplicate") {
+      await duplicateSetlist(setlistDialogSourceId, name);
+    } else {
+      await createSetlist(name);
+    }
     closeModal(els.setlistDialog);
   });
 
@@ -1245,7 +1254,13 @@ function renderSetlists() {
           <strong>${escapeHtml(setlist.name)}</strong>
           <span>${count} song${count === 1 ? "" : "s"}</span>
         </button>
-        <button class="setlist-delete-button" type="button" data-delete-setlist-id="${setlist.id}" title="Delete setlist" aria-label="Delete ${escapeAttr(setlist.name)}">
+        <button class="setlist-action-button" type="button" data-rename-setlist-id="${setlist.id}" title="Rename setlist" aria-label="Rename ${escapeAttr(setlist.name)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+        </button>
+        <button class="setlist-action-button" type="button" data-duplicate-setlist-id="${setlist.id}" title="Duplicate setlist" aria-label="Duplicate ${escapeAttr(setlist.name)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path></svg>
+        </button>
+        <button class="setlist-action-button setlist-delete-button" type="button" data-delete-setlist-id="${setlist.id}" title="Delete setlist" aria-label="Delete ${escapeAttr(setlist.name)}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m10 11 .5 7"></path><path d="m14 11-.5 7"></path><path d="M6 6l1 14h10l1-14"></path></svg>
         </button>
       </div>`;
@@ -1263,6 +1278,18 @@ function renderSetlists() {
   els.setlistList.querySelectorAll("[data-delete-setlist-id]").forEach((button) => {
     button.addEventListener("click", async () => {
       await deleteSetlist(button.dataset.deleteSetlistId);
+    });
+  });
+
+  els.setlistList.querySelectorAll("[data-rename-setlist-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      openSetlistDialog("rename", button.dataset.renameSetlistId);
+    });
+  });
+
+  els.setlistList.querySelectorAll("[data-duplicate-setlist-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      openSetlistDialog("duplicate", button.dataset.duplicateSetlistId);
     });
   });
 
@@ -1646,9 +1673,26 @@ function closeModal(element) {
   element.classList.add("hidden");
 }
 
-function openSetlistDialog() {
-  els.setlistNameInput.value = "";
+function openSetlistDialog(mode = "create", sourceId = null) {
+  const source = state.setlists.find((item) => item.id === sourceId);
+  setlistDialogMode = source ? mode : "create";
+  setlistDialogSourceId = source?.id || null;
+  if (setlistDialogMode === "rename") {
+    els.setlistDialogTitle.textContent = "Rename setlist";
+    els.setlistNameInput.value = source.name;
+    els.setlistSubmitButton.textContent = "Rename";
+  } else if (setlistDialogMode === "duplicate") {
+    els.setlistDialogTitle.textContent = "Duplicate setlist";
+    els.setlistNameInput.value = `${source.name} copy`;
+    els.setlistSubmitButton.textContent = "Duplicate";
+  } else {
+    els.setlistDialogTitle.textContent = "New setlist";
+    els.setlistNameInput.value = "";
+    els.setlistSubmitButton.textContent = "Create";
+  }
   openModal(els.setlistDialog);
+  els.setlistNameInput.focus();
+  els.setlistNameInput.select();
 }
 
 function openPlayGigDialog() {
@@ -1932,6 +1976,63 @@ async function deleteSetlist(setlistId) {
     selectedSongId = songsForSelectedSetlist()[0]?.id || null;
   }
   addNotification("Setlist deleted", `${setlist.name} was deleted.`, "system");
+  saveAndRender();
+}
+
+async function renameSetlist(setlistId, name) {
+  const setlist = state.setlists.find((item) => item.id === setlistId);
+  if (!setlist || !name) return;
+  const oldName = setlist.name;
+  if (!name || name === setlist.name) return;
+
+  if (isCloudMode()) {
+    const active = activeBand();
+    if (!active) return;
+    await apiRequest(`/bands/${active.id}/setlists/${setlistId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name })
+    });
+    await loadCloudSetlistsForActiveBand();
+  } else {
+    setlist.name = name;
+  }
+
+  addNotification("Setlist renamed", `${oldName} is now ${name}.`, "system");
+  saveAndRender();
+}
+
+async function duplicateSetlist(setlistId, name) {
+  const source = state.setlists.find((item) => item.id === setlistId);
+  if (!source || !name) return;
+
+  if (isCloudMode()) {
+    const active = activeBand();
+    if (!active) return;
+    const saved = await apiRequest(`/bands/${active.id}/setlists/${setlistId}/duplicate`, {
+      method: "POST",
+      body: JSON.stringify({ name })
+    });
+    await loadCloudSetlistsForActiveBand();
+    selectedSetlistId = saved.setlist_id;
+  } else {
+    const duplicateId = createId("sl");
+    state.setlists.push({
+      ...source,
+      id: duplicateId,
+      name,
+      createdByUserId: state.activeUserId
+    });
+    const copiedLinks = setlistSongLinks(setlistId).map((link, index) => ({
+      ...link,
+      setlistId: duplicateId,
+      order: index + 1
+    }));
+    state.setlistSongs.push(...copiedLinks);
+    selectedSetlistId = duplicateId;
+  }
+
+  selectedSongId = songsForSelectedSetlist()[0]?.id || null;
+  addNotification("Setlist duplicated", `${source.name} copied as ${name}.`, "system");
   saveAndRender();
 }
 

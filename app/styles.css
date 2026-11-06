@@ -869,9 +869,16 @@ textarea:focus {
 .band-row,
 .setlist-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 38px;
   gap: 8px;
   align-items: stretch;
+}
+
+.band-row {
+  grid-template-columns: minmax(0, 1fr) 38px;
+}
+
+.setlist-row {
+  grid-template-columns: minmax(0, 1fr) repeat(3, 38px);
 }
 
 .band-row .band-item,
@@ -887,6 +894,7 @@ textarea:focus {
 }
 
 .band-default-button,
+.setlist-action-button,
 .setlist-delete-button {
   width: 38px;
   min-height: 38px;
@@ -900,6 +908,7 @@ textarea:focus {
 }
 
 .band-default-button svg,
+.setlist-action-button svg,
 .setlist-delete-button svg {
   width: 18px;
   height: 18px;
@@ -923,6 +932,11 @@ textarea:focus {
 .setlist-delete-button:hover {
   background: #fff2ef;
   color: #9b2f20;
+}
+
+.setlist-action-button:hover {
+  background: #e8f5f1;
+  color: var(--primary);
 }
 
 .setlist-item,

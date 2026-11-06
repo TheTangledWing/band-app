@@ -69,6 +69,14 @@ class SetlistCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
 
 
+class SetlistPatch(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+
+
+class SetlistDuplicate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+
+
 class SongCreate(BaseModel):
     title: str = Field(min_length=1, max_length=160)
     key: str | None = Field(default=None, max_length=40)
@@ -455,6 +463,63 @@ def create_setlist(band_id: str, body: SetlistCreate, user: dict[str, str] = Dep
     }
     table.put_item(Item=item)
     return response_item(item)
+
+
+@app.patch("/bands/{band_id}/setlists/{setlist_id}")
+def update_setlist(
+    band_id: str,
+    setlist_id: str,
+    body: SetlistPatch,
+    user: dict[str, str] = Depends(current_user),
+):
+    require_member(band_id, user)
+    item = find_setlist(band_id, setlist_id)
+    item["name"] = body.name.strip()
+    item["updated_by_user_id"] = user["user_id"]
+    item["updated_at"] = now_iso()
+    table.put_item(Item=item)
+    return response_item(item)
+
+
+@app.post("/bands/{band_id}/setlists/{setlist_id}/duplicate", status_code=201)
+def duplicate_setlist(
+    band_id: str,
+    setlist_id: str,
+    body: SetlistDuplicate,
+    user: dict[str, str] = Depends(current_user),
+):
+    require_member(band_id, user)
+    source = find_setlist(band_id, setlist_id)
+    source_links = sorted(setlist_song_links(band_id, setlist_id), key=lambda link: link.get("order", 0))
+    duplicate_id = str(uuid.uuid4())
+    timestamp = now_iso()
+    duplicate = {
+        "PK": f"BAND#{band_id}",
+        "SK": f"SETLIST#{duplicate_id}",
+        "entity_type": "setlist",
+        "setlist_id": duplicate_id,
+        "band_id": band_id,
+        "name": (body.name or f"{source['name']} copy").strip(),
+        "created_by_user_id": user["user_id"],
+        "updated_by_user_id": user["user_id"],
+        "created_at": timestamp,
+        "updated_at": timestamp,
+    }
+    with table.batch_writer() as batch:
+        batch.put_item(Item=duplicate)
+        for order, link in enumerate(source_links, start=1):
+            copied_link = {
+                **link,
+                "SK": f"SETLISTSONG#{duplicate_id}#{order:04d}#{link['song_id']}",
+                "setlist_id": duplicate_id,
+                "order": order,
+                "created_by_user_id": user["user_id"],
+                "updated_by_user_id": user["user_id"],
+                "created_at": timestamp,
+                "updated_at": timestamp,
+            }
+            batch.put_item(Item=copied_link)
+    return response_item(duplicate)
 
 
 @app.post("/bands/{band_id}/setlists/{setlist_id}/delete")
